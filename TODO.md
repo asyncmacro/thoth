@@ -184,16 +184,16 @@
 
 ## File events
 
-- [ ] Note created
-- [ ] Note modified
-- [ ] Note renamed
-- [ ] Note deleted
+- [x] Note created
+- [x] Note modified
+- [x] Note renamed
+- [x] Note deleted
 
 ## Operation generation
 
-- [ ] Convert events to operations
-- [ ] Assign local revisions
-- [ ] Queue operations
+- [x] Convert events to operations
+- [x] Assign local revisions
+- [x] Queue operations
 
 ---
 
