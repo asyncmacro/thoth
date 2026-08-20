@@ -39,12 +39,16 @@ function setup(getDeviceId: () => string = () => 'dev-1') {
   return { vault, queue, detach };
 }
 
+async function waitForSize(queue: OperationQueue, size: number): Promise<void> {
+  await vi.waitFor(() => expect(queue.size).toBe(size));
+}
+
 describe('attachVaultListener', () => {
   it('queues a create-note operation on file create', async () => {
     const { vault, queue } = setup();
     vault.fire('create', note('notes/a.md'));
 
-    await vi.waitFor(() => expect(queue.size).toBe(1));
+    await waitForSize(queue, 1);
     const op = queue.all[0];
     expect(op.type).toBe('create-note');
     if (op.type === 'create-note') {
@@ -59,7 +63,7 @@ describe('attachVaultListener', () => {
     const { vault, queue } = setup();
     vault.fire('modify', note('notes/a.md'));
 
-    await vi.waitFor(() => expect(queue.size).toBe(1));
+    await waitForSize(queue, 1);
     const op = queue.all[0];
     expect(op.type).toBe('replace-content');
     if (op.type === 'replace-content') {
@@ -70,12 +74,12 @@ describe('attachVaultListener', () => {
     }
   });
 
-  it('queues a rename-note operation on file rename', () => {
+  it('queues a rename-note operation on file rename', async () => {
     const { vault, queue } = setup();
     const file = note('notes/b.md');
     vault.fire('rename', file, 'notes/a.md');
 
-    expect(queue.size).toBe(1);
+    await waitForSize(queue, 1);
     const op = queue.all[0];
     expect(op.type).toBe('rename-note');
     if (op.type === 'rename-note') {
@@ -86,11 +90,11 @@ describe('attachVaultListener', () => {
     }
   });
 
-  it('queues a delete-note operation on file delete', () => {
+  it('queues a delete-note operation on file delete', async () => {
     const { vault, queue } = setup();
     vault.fire('delete', note('notes/a.md'));
 
-    expect(queue.size).toBe(1);
+    await waitForSize(queue, 1);
     const op = queue.all[0];
     expect(op.type).toBe('delete-note');
     if (op.type === 'delete-note') {
@@ -98,19 +102,19 @@ describe('attachVaultListener', () => {
     }
   });
 
-  it('ignores non-markdown files', () => {
+  it('ignores non-markdown files', async () => {
     const { vault, queue } = setup();
     vault.fire('create', { path: 'image.png', extension: 'png' });
     vault.fire('modify', { path: 'note.txt', extension: 'txt' });
 
-    expect(queue.size).toBe(0);
+    await vi.waitFor(() => expect(queue.size).toBe(0));
   });
 
-  it('ignores folders', () => {
+  it('ignores folders', async () => {
     const { vault, queue } = setup();
     vault.fire('create', { path: 'subfolder', extension: undefined });
 
-    expect(queue.size).toBe(0);
+    await vi.waitFor(() => expect(queue.size).toBe(0));
   });
 
   it('ignores events while no device is configured', async () => {
@@ -118,7 +122,6 @@ describe('attachVaultListener', () => {
     vault.fire('create', note('notes/a.md'));
 
     await vi.waitFor(() => expect(queue.size).toBe(0));
-    expect(queue.size).toBe(0);
   });
 
   it('detaches all listeners on unsubscribe', () => {

@@ -1,15 +1,14 @@
 import { Notice, Plugin } from 'obsidian';
 
 import { checkHealth, testAuthentication } from './api.js';
+import {
+  loadPluginData,
+  savePluginData,
+  type Persistence,
+} from './persistence.js';
 import { OperationQueue } from './queue.js';
 import { attachVaultListener } from './vault-listener.js';
-import {
-  DEFAULT_SETTINGS,
-  loadSettings,
-  saveSettings,
-  type SettingsStorage,
-  type ThothSettings,
-} from './settings.js';
+import { DEFAULT_SETTINGS, type ThothSettings } from './settings.js';
 import { ThothSettingTab } from './settings-tab.js';
 
 // Obsidian loads the plugin entry module and instantiates its default
@@ -17,11 +16,11 @@ import { ThothSettingTab } from './settings-tab.js';
 // export lets other modules import the type without the runtime cycle.
 export class ThothPlugin extends Plugin {
   settings: ThothSettings = { ...DEFAULT_SETTINGS };
-  readonly queue = new OperationQueue();
+  readonly queue = new OperationQueue((queue) => this.saveQueue(queue));
   private detachVaultListener?: () => void;
 
   async onload(): Promise<void> {
-    await this.loadSettings();
+    await this.loadPersisted();
 
     this.addSettingTab(new ThothSettingTab(this.app, this));
 
@@ -47,12 +46,26 @@ export class ThothPlugin extends Plugin {
     }
   }
 
-  async loadSettings(): Promise<void> {
-    this.settings = await loadSettings(this.storage());
+  /** Restores settings and the persisted operation queue on startup. */
+  async loadPersisted(): Promise<void> {
+    const data = await loadPluginData(this.storage());
+    this.settings = data.settings;
+    this.queue.replaceAll(data.queue);
   }
 
+  /** Persists settings and the queue as one plugin data blob. */
   async saveSettings(): Promise<void> {
-    await saveSettings(this.storage(), this.settings);
+    await savePluginData(this.storage(), {
+      settings: this.settings,
+      queue: [...this.queue.all],
+    });
+  }
+
+  async saveQueue(queue: OperationQueue): Promise<void> {
+    await savePluginData(this.storage(), {
+      settings: this.settings,
+      queue: [...queue.all],
+    });
   }
 
   async checkConnection(): Promise<void> {
@@ -76,7 +89,7 @@ export class ThothPlugin extends Plugin {
     new Notice(`Thoth: ${auth.message}`);
   }
 
-  private storage(): SettingsStorage {
+  private storage(): Persistence {
     return {
       loadData: () => this.loadData(),
       saveData: (data) => this.saveData(data),

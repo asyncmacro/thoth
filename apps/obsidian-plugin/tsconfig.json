@@ -4,6 +4,9 @@
     "outDir": "dist",
     "rootDir": "src"
   },
-  "references": [{ "path": "../../packages/protocol" }],
+  "references": [
+    { "path": "../../packages/protocol" },
+    { "path": "../../packages/validation" }
+  ],
   "include": ["src"]
 }

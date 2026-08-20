@@ -12,54 +12,27 @@ export const DEFAULT_SETTINGS: Readonly<ThothSettings> = {
   apiKey: '',
 };
 
-/**
- * Minimal persistence surface implemented by the Obsidian plugin
- * (loadData/saveData). Kept as an interface so settings logic can be
- * tested without the Obsidian runtime.
- */
-export interface SettingsStorage {
-  loadData(): Promise<unknown>;
-  saveData(data: unknown): Promise<void>;
-}
-
 function asString(value: unknown, fallback: string): string {
   return typeof value === 'string' ? value : fallback;
 }
 
 /**
- * Loads settings from storage. Saved data is external input and may be
- * malformed or missing: every field is validated and falls back to the
- * default rather than crashing the plugin.
+ * Parses settings from persisted plugin data. Saved data is external
+ * input and may be malformed: every field is validated and falls back to
+ * the default rather than crashing the plugin.
  */
-export async function loadSettings(
-  storage: SettingsStorage
-): Promise<ThothSettings> {
-  let data: unknown;
-  try {
-    data = await storage.loadData();
-  } catch {
-    // Intentionally swallow: unreadable settings must not break startup.
-    data = null;
-  }
-
-  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+export function parseSettings(value: unknown): ThothSettings {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return { ...DEFAULT_SETTINGS };
   }
 
-  const record = data as Record<string, unknown>;
+  const record = value as Record<string, unknown>;
   return {
     serverUrl: asString(record.serverUrl, DEFAULT_SETTINGS.serverUrl),
     vaultId: asString(record.vaultId, DEFAULT_SETTINGS.vaultId),
     deviceId: asString(record.deviceId, DEFAULT_SETTINGS.deviceId),
     apiKey: asString(record.apiKey, DEFAULT_SETTINGS.apiKey),
   };
-}
-
-export async function saveSettings(
-  storage: SettingsStorage,
-  settings: ThothSettings
-): Promise<void> {
-  await storage.saveData(settings);
 }
 
 /** Returns a new settings object with one field replaced (immutable). */
