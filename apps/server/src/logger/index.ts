@@ -5,21 +5,31 @@ export interface LogContext {
 }
 
 export function createLogger(env: { ENVIRONMENT?: string }) {
-  const isDev = env.ENVIRONMENT === "development" || process.env.NODE_ENV === "development";
+  const isDev =
+    env.ENVIRONMENT === 'development' || process.env.NODE_ENV === 'development';
 
   return {
     info: (message: string, ctx?: LogContext) => {
       if (isDev) {
-        console.log(JSON.stringify({ level: "info", message, ...ctx }));
+        console.log(JSON.stringify({ level: 'info', message, ...ctx }));
       }
     },
     error: (message: string, ctx?: LogContext, error?: unknown) => {
-      console.error(JSON.stringify({
-        level: "error",
-        message,
-        ...ctx,
-        error: error instanceof Error ? { name: error.name, message: error.message, stack: isDev ? error.stack : undefined } : error,
-      }));
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          message,
+          ...ctx,
+          error:
+            error instanceof Error
+              ? {
+                  name: error.name,
+                  message: error.message,
+                  stack: isDev ? error.stack : undefined,
+                }
+              : error,
+        })
+      );
     },
   };
 }

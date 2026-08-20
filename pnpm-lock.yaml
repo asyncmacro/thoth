@@ -38,7 +38,17 @@ importers:
 
   apps/obsidian-plugin: {}
 
-  apps/server: {}
+  apps/server:
+    dependencies:
+      '@thoth/operations':
+        specifier: workspace:*
+        version: link:../../packages/operations
+      '@thoth/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
+      '@thoth/validation':
+        specifier: workspace:*
+        version: link:../../packages/validation
 
   packages/crypto: {}
 

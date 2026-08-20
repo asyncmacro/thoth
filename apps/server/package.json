@@ -8,5 +8,10 @@
     "build": "tsc",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@thoth/operations": "workspace:*",
+    "@thoth/protocol": "workspace:*",
+    "@thoth/validation": "workspace:*"
   }
 }

@@ -25,6 +25,9 @@ export interface PushOperationsRequest {
 }
 
 export interface PullOperationsRequest {
-  /** Fetch operations applied after this revision (exclusive). */
+  /**
+   * First revision the client still needs. Send 0 for a fresh device.
+   * The server returns operations with revision >= sinceRevision, in order.
+   */
   sinceRevision: Revision;
 }

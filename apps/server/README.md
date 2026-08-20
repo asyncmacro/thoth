@@ -13,6 +13,7 @@ pnpm dev   # wrangler dev
 Environment variables are in `.dev.vars`.
 
 Endpoints:
+
 - GET /health → { status: "ok" }
 - GET /version → { version: "..." }
 
