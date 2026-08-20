@@ -1,0 +1,16 @@
+name = "thoth-server"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+[env.development]
+name = "thoth-server-dev"
+
+[env.production]
+name = "thoth-server-prod"
+
+[vars]
+VERSION = "0.1.0"
+
+[[durable_objects.bindings]]
+name = "VAULT_DO"
+class_name = "VaultDurableObject"
