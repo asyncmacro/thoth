@@ -6,5 +6,8 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc && node build.config.mjs"
+  },
+  "devDependencies": {
+    "obsidian": "^1.13.1"
   }
 }
