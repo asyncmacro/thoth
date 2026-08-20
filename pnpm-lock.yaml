@@ -48,7 +48,11 @@ importers:
 
   packages/utils: {}
 
-  packages/validation: {}
+  packages/validation:
+    dependencies:
+      '@thoth/protocol':
+        specifier: workspace:*
+        version: link:../protocol
 
 packages:
 
