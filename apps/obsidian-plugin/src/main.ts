@@ -1,6 +1,8 @@
 import { Notice, Plugin } from 'obsidian';
 
 import { checkHealth, testAuthentication } from './api.js';
+import { OperationQueue } from './queue.js';
+import { attachVaultListener } from './vault-listener.js';
 import {
   DEFAULT_SETTINGS,
   loadSettings,
@@ -15,6 +17,8 @@ import { ThothSettingTab } from './settings-tab.js';
 // export lets other modules import the type without the runtime cycle.
 export class ThothPlugin extends Plugin {
   settings: ThothSettings = { ...DEFAULT_SETTINGS };
+  readonly queue = new OperationQueue();
+  private detachVaultListener?: () => void;
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -28,6 +32,19 @@ export class ThothPlugin extends Plugin {
         void this.checkConnection();
       },
     });
+
+    this.detachVaultListener = attachVaultListener({
+      vault: this.app.vault,
+      queue: this.queue,
+      getDeviceId: () => this.settings.deviceId,
+    });
+  }
+
+  onunload(): void {
+    if (this.detachVaultListener) {
+      this.detachVaultListener();
+      this.detachVaultListener = undefined;
+    }
   }
 
   async loadSettings(): Promise<void> {
