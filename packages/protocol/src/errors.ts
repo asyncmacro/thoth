@@ -7,14 +7,14 @@
 
 /** Stable, machine-readable error identifiers. */
 export const ERROR_CODES = [
-  "BAD_REQUEST",
-  "UNAUTHORIZED",
-  "FORBIDDEN",
-  "NOT_FOUND",
-  "CONFLICT",
-  "REVISION_MISMATCH",
-  "VALIDATION_ERROR",
-  "INTERNAL_ERROR",
+  'BAD_REQUEST',
+  'UNAUTHORIZED',
+  'FORBIDDEN',
+  'NOT_FOUND',
+  'CONFLICT',
+  'REVISION_MISMATCH',
+  'VALIDATION_ERROR',
+  'INTERNAL_ERROR',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];
@@ -37,7 +37,7 @@ export interface ValidationIssue {
 }
 
 export interface ValidationErrorResponse extends ErrorResponse {
-  error: "VALIDATION_ERROR";
+  error: 'VALIDATION_ERROR';
   details: {
     issues: ValidationIssue[];
   };

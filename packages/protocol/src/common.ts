@@ -18,10 +18,7 @@ export type Revision = number;
  * object.
  */
 export type OperationType =
-  | "create-note"
-  | "delete-note"
-  | "rename-note"
-  | "replace-content";
+  'create-note' | 'delete-note' | 'rename-note' | 'replace-content';
 
 /**
  * An atomic change transmitted between a device and the server.

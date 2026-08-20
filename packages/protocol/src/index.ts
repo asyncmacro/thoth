@@ -11,13 +11,13 @@ export {
   OperationType,
   Revision,
   VaultId,
-} from "./common.js";
+} from './common.js';
 export {
   CreateVaultRequest,
   PullOperationsRequest,
   PushOperationsRequest,
   RegisterDeviceRequest,
-} from "./requests.js";
+} from './requests.js';
 export {
   CreateVaultResponse,
   DeviceListResponse,
@@ -28,11 +28,11 @@ export {
   RegisterDeviceResponse,
   VaultMetadataResponse,
   VersionResponse,
-} from "./responses.js";
+} from './responses.js';
 export {
   ERROR_CODES,
   ErrorCode,
   ErrorResponse,
   ValidationErrorResponse,
   ValidationIssue,
-} from "./errors.js";
+} from './errors.js';
