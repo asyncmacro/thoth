@@ -11,4 +11,18 @@ export {
   nextRevision,
   operationError,
 } from './engine.js';
+export {
+  AppendResult,
+  OperationLog,
+  appendOperation,
+  createOperationLog,
+  deserializeLog,
+  serializeLog,
+} from './log.js';
+export {
+  SnapshotResult,
+  deserializeSnapshot,
+  serializeSnapshot,
+  snapshotFromLog,
+} from './snapshot.js';
 export { VaultState, createVaultState } from './state.js';
