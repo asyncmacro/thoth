@@ -1,0 +1,102 @@
+/**
+ * Operation engine: applies atomic operations to a vault state.
+ *
+ * The engine is pure and deterministic. Every function returns a
+ * discriminated result instead of throwing; invalid operations are
+ * rejected with a stable, machine-readable error identifier.
+ */
+
+import type { Operation } from '@thoth/protocol';
+
+import type { VaultState } from './state.js';
+
+export type OperationError =
+  'NOTE_EXISTS' | 'NOTE_NOT_FOUND' | 'TARGET_EXISTS' | 'REVISION_MISMATCH';
+
+export type ApplyResult =
+  { ok: true; state: VaultState } | { ok: false; error: OperationError };
+
+/** The next revision after applying one operation. */
+export function nextRevision(revision: number): number {
+  return revision + 1;
+}
+
+/**
+ * Checks an operation against the current state without applying it.
+ * Returns `null` when the operation is valid.
+ */
+export function operationError(
+  op: Operation,
+  state: VaultState
+): OperationError | null {
+  // An operation applies on top of exactly the current revision.
+  if (op.revision !== state.revision) {
+    return 'REVISION_MISMATCH';
+  }
+
+  switch (op.type) {
+    case 'create-note':
+      return op.payload.path in state.files ? 'NOTE_EXISTS' : null;
+    case 'delete-note':
+      return op.payload.path in state.files ? null : 'NOTE_NOT_FOUND';
+    case 'rename-note':
+      if (!(op.payload.oldPath in state.files)) {
+        return 'NOTE_NOT_FOUND';
+      }
+      return op.payload.newPath in state.files ? 'TARGET_EXISTS' : null;
+    case 'replace-content':
+      return op.payload.path in state.files ? null : 'NOTE_NOT_FOUND';
+  }
+}
+
+/**
+ * Applies a single operation, returning a new state on success.
+ * The input state is never mutated.
+ */
+export function applyOperation(state: VaultState, op: Operation): ApplyResult {
+  const error = operationError(op, state);
+  if (error) {
+    return { ok: false, error };
+  }
+
+  const files = { ...state.files };
+  switch (op.type) {
+    case 'create-note':
+      files[op.payload.path] = op.payload.content;
+      break;
+    case 'delete-note':
+      delete files[op.payload.path];
+      break;
+    case 'rename-note': {
+      const content = files[op.payload.oldPath];
+      delete files[op.payload.oldPath];
+      files[op.payload.newPath] = content;
+      break;
+    }
+    case 'replace-content':
+      files[op.payload.path] = op.payload.content;
+      break;
+  }
+
+  return { ok: true, state: { revision: nextRevision(state.revision), files } };
+}
+
+/**
+ * Applies operations in order and stops at the first rejected one.
+ * Earlier operations are applied to an independent state copy, so a
+ * rejected batch leaves the input state untouched.
+ */
+export function applyOperations(
+  state: VaultState,
+  operations: Operation[]
+): ApplyResult {
+  let current = state;
+  for (const op of operations) {
+    const result = applyOperation(current, op);
+    if (!result.ok) {
+      return result;
+    }
+    current = result.state;
+  }
+  return { ok: true, state: current };
+}

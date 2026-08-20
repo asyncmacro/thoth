@@ -42,7 +42,14 @@ importers:
 
   packages/crypto: {}
 
-  packages/operations: {}
+  packages/operations:
+    dependencies:
+      '@thoth/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@thoth/validation':
+        specifier: workspace:*
+        version: link:../validation
 
   packages/protocol: {}
 
