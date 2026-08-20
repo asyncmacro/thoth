@@ -163,20 +163,20 @@
 
 ## Plugin
 
-- [ ] Plugin bootstrap
-- [ ] Settings tab
-- [ ] Save settings
+- [x] Plugin bootstrap
+- [x] Settings tab
+- [x] Save settings
 
 ## Configuration
 
-- [ ] Server URL
-- [ ] API key
-- [ ] Device ID
+- [x] Server URL
+- [x] API key
+- [x] Device ID
 
 ## Connectivity
 
-- [ ] Server health check
-- [ ] Authentication test
+- [x] Server health check
+- [x] Authentication test
 
 ---
 
