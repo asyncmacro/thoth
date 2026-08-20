@@ -96,16 +96,16 @@
 
 ## Request models
 
-- [ ] CreateVault
-- [ ] RegisterDevice
-- [ ] PushOperations
-- [ ] PullOperations
+- [x] CreateVault
+- [x] RegisterDevice
+- [x] PushOperations
+- [x] PullOperations
 
 ## Response models
 
-- [ ] Success responses
-- [ ] Error responses
-- [ ] Validation errors
+- [x] Success responses
+- [x] Error responses
+- [x] Validation errors
 
 ## Validation
 
