@@ -201,15 +201,15 @@
 
 ## Queue
 
-- [ ] Persistent queue
-- [ ] Load on startup
-- [ ] Save after changes
+- [x] Persistent queue
+- [x] Load on startup
+- [x] Save after changes
 
 ## Offline support
 
-- [ ] Queue while offline
-- [ ] Retry automatically
-- [ ] Exponential backoff
+- [x] Queue while offline
+- [x] Retry automatically
+- [x] Exponential backoff
 
 ---
 
