@@ -1,12 +1,17 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import {
+  CreateNoteOperation,
+  CreateNotePayload,
+  DeleteNoteOperation,
   ERROR_CODES,
   ErrorResponse,
   Operation,
   PullOperationsResponse,
   PushOperationsRequest,
   RegisterDeviceResponse,
+  RenameNoteOperation,
+  ReplaceContentOperation,
   ValidationErrorResponse,
 } from '../index.js';
 
@@ -25,6 +30,19 @@ describe('protocol', () => {
   it('operation type is a closed union of supported kinds', () => {
     expectTypeOf<Operation['type']>().toEqualTypeOf<
       'create-note' | 'delete-note' | 'rename-note' | 'replace-content'
+    >();
+  });
+
+  it('narrows payloads to the operation kind', () => {
+    expectTypeOf<
+      CreateNoteOperation['payload']
+    >().toEqualTypeOf<CreateNotePayload>();
+    expectTypeOf<DeleteNoteOperation['type']>().toEqualTypeOf<'delete-note'>();
+    expectTypeOf<Operation['payload']>().toEqualTypeOf<
+      | CreateNoteOperation['payload']
+      | DeleteNoteOperation['payload']
+      | RenameNoteOperation['payload']
+      | ReplaceContentOperation['payload']
     >();
   });
 

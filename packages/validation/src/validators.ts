@@ -210,6 +210,29 @@ export function unknownObject(): Validator<Record<string, unknown>> {
   };
 }
 
+/**
+ * Validates a string-keyed record whose values all pass the entry
+ * validator, e.g. `record(string())` for a file map.
+ */
+export function record<T>(entry: Validator<T>): Validator<Record<string, T>> {
+  return (value: unknown) => {
+    if (!isRecord(value)) {
+      return failure([issueAt('', 'expected an object')]);
+    }
+    const issues: ValidationIssue[] = [];
+    const out: Record<string, T> = {};
+    for (const key of Object.keys(value)) {
+      const result = entry(value[key]);
+      if (result.ok) {
+        out[key] = result.value;
+      } else {
+        issues.push(...prefixIssues(result.issues, key));
+      }
+    }
+    return issues.length > 0 ? failure(issues) : success(out);
+  };
+}
+
 /** Typed error thrown by `parse` when validation fails. */
 export class ValidationError extends Error {
   readonly issues: ValidationIssue[];

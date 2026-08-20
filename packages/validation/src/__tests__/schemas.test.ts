@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import {
   createVaultSchema,
+  logSchema,
   operationSchema,
   pullOperationsSchema,
   pushOperationsSchema,
   registerDeviceSchema,
+  snapshotSchema,
 } from '../index.js';
 
 const validOperation = {
@@ -13,7 +15,7 @@ const validOperation = {
   type: 'create-note',
   deviceId: 'device-1',
   revision: 3,
-  payload: { path: 'notes/hello' },
+  payload: { path: 'notes/hello', content: 'hello' },
 };
 
 describe('createVaultSchema', () => {
@@ -82,7 +84,7 @@ describe('operationSchema', () => {
       type: 'create-note',
       deviceId: 'device-1',
       revision: 3,
-      payload: { path: 'notes/hello' },
+      payload: { path: 'notes/hello', content: 'hello' },
     };
     const result = operationSchema(withoutId);
     expect(result.ok).toBe(false);
@@ -97,6 +99,47 @@ describe('operationSchema', () => {
     if (!result.ok) {
       expect(result.issues).toEqual([
         { path: 'payload', message: 'expected an object' },
+      ]);
+    }
+  });
+
+  it('requires create-note content in the payload', () => {
+    const result = operationSchema({
+      ...validOperation,
+      payload: { path: 'notes/hello' },
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.issues).toEqual([
+        { path: 'payload.content', message: 'expected a string' },
+      ]);
+    }
+  });
+
+  it('requires rename-note newPath in the payload', () => {
+    const result = operationSchema({
+      ...validOperation,
+      type: 'rename-note',
+      payload: { oldPath: 'a.md' },
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.issues).toEqual([
+        { path: 'payload.newPath', message: 'expected a string' },
+      ]);
+    }
+  });
+
+  it('rejects pathless delete-note payloads', () => {
+    const result = operationSchema({
+      ...validOperation,
+      type: 'delete-note',
+      payload: { path: '' },
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.issues).toEqual([
+        { path: 'payload.path', message: 'must be at least 1 characters' },
       ]);
     }
   });
@@ -165,5 +208,57 @@ describe('pullOperationsSchema', () => {
   it('rejects unknown keys', () => {
     const result = pullOperationsSchema({ sinceRevision: 1, extra: true });
     expect(result.ok).toBe(false);
+  });
+});
+
+describe('logSchema', () => {
+  it('accepts an empty log', () => {
+    expect(logSchema({ operations: [] }).ok).toBe(true);
+  });
+
+  it('accepts a log with valid operations', () => {
+    expect(logSchema({ operations: [validOperation] }).ok).toBe(true);
+  });
+
+  it('rejects malformed operations inside the log', () => {
+    const result = logSchema({
+      operations: [{ ...validOperation, type: 'x' }],
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.issues[0].path).toBe('operations[0].type');
+    }
+  });
+});
+
+describe('snapshotSchema', () => {
+  it('accepts an empty snapshot', () => {
+    expect(snapshotSchema({ revision: 0, files: {} }).ok).toBe(true);
+  });
+
+  it('accepts a snapshot with files', () => {
+    expect(snapshotSchema({ revision: 2, files: { 'a.md': 'hello' } }).ok).toBe(
+      true
+    );
+  });
+
+  it('rejects a negative revision', () => {
+    const result = snapshotSchema({ revision: -1, files: {} });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.issues).toEqual([
+        { path: 'revision', message: 'must be >= 0' },
+      ]);
+    }
+  });
+
+  it('rejects non-string file contents', () => {
+    const result = snapshotSchema({ revision: 0, files: { 'a.md': 42 } });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.issues).toEqual([
+        { path: 'files.a.md', message: 'expected a string' },
+      ]);
+    }
   });
 });

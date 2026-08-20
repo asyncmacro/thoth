@@ -10,6 +10,7 @@ import {
   oneOf,
   optional,
   parse,
+  record,
   string,
   unknownObject,
 } from '../index.js';
@@ -152,6 +153,27 @@ describe('unknownObject', () => {
   it('rejects null and arrays', () => {
     expect(unknownObject()(null).ok).toBe(false);
     expect(unknownObject()([1]).ok).toBe(false);
+  });
+});
+
+describe('record', () => {
+  it('accepts an empty record', () => {
+    expect(record(string())({}).ok).toBe(true);
+  });
+
+  it('validates every value and prefixes paths with the key', () => {
+    const result = record(string())({ 'a.md': 'hello', 'b.md': 42 });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.issues).toEqual([
+        { path: 'b.md', message: 'expected a string' },
+      ]);
+    }
+  });
+
+  it('rejects non-objects', () => {
+    expect(record(string())(['array']).ok).toBe(false);
+    expect(record(string())(null).ok).toBe(false);
   });
 });
 

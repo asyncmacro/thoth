@@ -16,13 +16,16 @@ export {
   oneOf,
   optional,
   parse,
+  record,
   string,
   unknownObject,
 } from './validators.js';
 export {
   createVaultSchema,
+  logSchema,
   operationSchema,
   pullOperationsSchema,
   pushOperationsSchema,
   registerDeviceSchema,
+  snapshotSchema,
 } from './schemas.js';

@@ -4,7 +4,8 @@
  * These describe the body of every successful API response.
  */
 
-import type { DeviceId, Operation, Revision, VaultId } from './common.js';
+import type { DeviceId, Revision, VaultId } from './common.js';
+import type { Operation } from './operations.js';
 
 export interface CreateVaultResponse {
   id: VaultId;

@@ -4,7 +4,8 @@
  * These describe the body of every client-initiated API request.
  */
 
-import type { Operation, Revision } from './common.js';
+import type { Revision } from './common.js';
+import type { Operation } from './operations.js';
 
 export interface CreateVaultRequest {
   /** Optional human-readable vault name. */

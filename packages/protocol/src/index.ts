@@ -4,14 +4,19 @@
  * invent server state.
  */
 
+export { DeviceId, OperationId, Revision, VaultId } from './common.js';
 export {
-  DeviceId,
+  CreateNoteOperation,
+  CreateNotePayload,
+  DeleteNoteOperation,
+  DeleteNotePayload,
   Operation,
-  OperationId,
   OperationType,
-  Revision,
-  VaultId,
-} from './common.js';
+  RenameNoteOperation,
+  RenameNotePayload,
+  ReplaceContentOperation,
+  ReplaceContentPayload,
+} from './operations.js';
 export {
   CreateVaultRequest,
   PullOperationsRequest,
