@@ -1,7 +1,69 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
+
+import {
+  ERROR_CODES,
+  ErrorResponse,
+  Operation,
+  PullOperationsResponse,
+  PushOperationsRequest,
+  RegisterDeviceResponse,
+  ValidationErrorResponse,
+} from "../index.js";
 
 describe("protocol", () => {
-  it("smoke test", () => {
-    expect(true).toBe(true);
+  it("exposes stable error identifiers", () => {
+    expect(ERROR_CODES).toContain("BAD_REQUEST");
+    expect(ERROR_CODES).toContain("UNAUTHORIZED");
+    expect(ERROR_CODES).toContain("FORBIDDEN");
+    expect(ERROR_CODES).toContain("NOT_FOUND");
+    expect(ERROR_CODES).toContain("CONFLICT");
+    expect(ERROR_CODES).toContain("REVISION_MISMATCH");
+    expect(ERROR_CODES).toContain("VALIDATION_ERROR");
+    expect(ERROR_CODES).toContain("INTERNAL_ERROR");
+  });
+
+  it("operation type is a closed union of supported kinds", () => {
+    expectTypeOf<Operation["type"]>().toEqualTypeOf<
+      | "create-note"
+      | "delete-note"
+      | "rename-note"
+      | "replace-content"
+    >();
+  });
+
+  it("push request carries a base revision and ordered operations", () => {
+    expectTypeOf<PushOperationsRequest["baseRevision"]>().toEqualTypeOf<
+      number
+    >();
+    expectTypeOf<PushOperationsRequest["operations"]>().toEqualTypeOf<
+      Operation[]
+    >();
+  });
+
+  it("pull response returns a revision and operations", () => {
+    expectTypeOf<PullOperationsResponse["operations"]>().toEqualTypeOf<
+      Operation[]
+    >();
+    expectTypeOf<PullOperationsResponse["revision"]>().toEqualTypeOf<number>();
+  });
+
+  it("register device response returns an api key", () => {
+    expectTypeOf<RegisterDeviceResponse["apiKey"]>().toEqualTypeOf<string>();
+  });
+
+  it("validation errors pin the error code to VALIDATION_ERROR", () => {
+    expectTypeOf<ValidationErrorResponse["error"]>().toEqualTypeOf<
+      "VALIDATION_ERROR"
+    >();
+    expectTypeOf<ValidationErrorResponse["details"]["issues"]>().toEqualTypeOf<
+      Array<{ path: string; message: string }>
+    >();
+  });
+
+  it("generic error responses carry a stable error code and message", () => {
+    expectTypeOf<ErrorResponse["error"]>().toEqualTypeOf<
+      (typeof ERROR_CODES)[number]
+    >();
+    expectTypeOf<ErrorResponse["message"]>().toEqualTypeOf<string>();
   });
 });
