@@ -109,8 +109,8 @@
 
 ## Validation
 
-- [ ] Runtime schemas
-- [ ] Shared validation helpers
+- [x] Runtime schemas
+- [x] Shared validation helpers
 
 ---
 
