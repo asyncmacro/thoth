@@ -118,22 +118,22 @@
 
 ## Operation model
 
-- [ ] CreateNote
-- [ ] DeleteNote
-- [ ] RenameNote
-- [ ] ReplaceContent
+- [x] CreateNote
+- [x] DeleteNote
+- [x] RenameNote
+- [x] ReplaceContent
 
 ## Engine
 
-- [ ] Apply operation
-- [ ] Validate operation
-- [ ] Reject invalid operations
-- [ ] Increment revision
+- [x] Apply operation
+- [x] Validate operation
+- [x] Reject invalid operations
+- [x] Increment revision
 
 ## Persistence
 
-- [ ] Append-only operation log
-- [ ] Snapshot storage
+- [x] Append-only operation log
+- [x] Snapshot storage
 
 ---
 
