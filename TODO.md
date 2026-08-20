@@ -141,21 +141,21 @@
 
 ## Push
 
-- [ ] Upload operations
-- [ ] Validate revisions
-- [ ] Store operations
-- [ ] Return new revision
+- [x] Upload operations
+- [x] Validate revisions
+- [x] Store operations
+- [x] Return new revision
 
 ## Pull
 
-- [ ] Fetch missing operations
-- [ ] Return latest revision
+- [x] Fetch missing operations
+- [x] Return latest revision
 
 ## Conflict handling
 
-- [ ] Revision mismatch detection
-- [ ] 409 responses
-- [ ] Retry workflow support
+- [x] Revision mismatch detection
+- [x] 409 responses
+- [x] Retry workflow support
 
 ---
 
