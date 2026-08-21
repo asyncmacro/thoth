@@ -70,6 +70,14 @@ export class OperationQueue {
     this.operations.push(...operations);
   }
 
+  /** Removes the first `count` acknowledged operations from the queue. */
+  dropFirst(count: number): void {
+    if (count <= 0) {
+      return;
+    }
+    this.operations.splice(0, count);
+  }
+
   private build(draft: OperationDraft, deviceId: DeviceId): Operation {
     const id = crypto.randomUUID();
     const revision = this.nextRevision();

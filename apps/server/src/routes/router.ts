@@ -110,6 +110,13 @@ export function createRouter(env: Env) {
           return forwardToVault('/pull');
         }
 
+        if (
+          url.pathname === `/vaults/${vaultId}/snapshot` &&
+          request.method === 'GET'
+        ) {
+          return forwardToVault('/snapshot');
+        }
+
         // Device routes
         if (url.pathname.startsWith(`/vaults/${vaultId}/devices`)) {
           if (env.VAULT_DO) {

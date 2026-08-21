@@ -41,6 +41,7 @@ describe('parsePluginData', () => {
     const data = parsePluginData(undefined);
     expect(data.settings).toMatchObject({ serverUrl: '', apiKey: '' });
     expect(data.queue).toEqual([]);
+    expect(data.serverRevision).toBe(0);
   });
 
   it('returns defaults for non-record data', () => {
@@ -56,6 +57,7 @@ describe('parsePluginData', () => {
 
     expect(data.settings.serverUrl).toBe('https://sync.example.com');
     expect(data.queue).toEqual([validOperation(0)]);
+    expect(data.serverRevision).toBe(0);
   });
 
   it('drops malformed queue entries but keeps valid ones', () => {
@@ -102,6 +104,7 @@ describe('loadPluginData', () => {
     const expected: PluginData = {
       settings: { serverUrl: 'u', vaultId: 'v', deviceId: 'd', apiKey: 'k' },
       queue: [validOperation(1)],
+      serverRevision: 42,
     };
 
     await savePluginData(storage, expected);

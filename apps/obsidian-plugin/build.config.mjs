@@ -1,4 +1,5 @@
 import { build } from 'esbuild';
+import { copyFileSync, mkdirSync } from 'node:fs';
 
 await build({
   entryPoints: ['src/main.ts'],
@@ -10,3 +11,6 @@ await build({
   external: ['obsidian'],
   sourcemap: true,
 });
+
+mkdirSync('dist', { recursive: true });
+copyFileSync('manifest.json', 'dist/manifest.json');

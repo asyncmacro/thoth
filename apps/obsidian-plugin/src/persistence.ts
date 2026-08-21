@@ -17,6 +17,7 @@ export interface Persistence {
 export interface PluginData {
   settings: ThothSettings;
   queue: Operation[];
+  serverRevision: number;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -41,11 +42,17 @@ function parseQueue(value: unknown): Operation[] {
 /** Parses the persisted plugin blob, tolerating missing or malformed parts. */
 export function parsePluginData(value: unknown): PluginData {
   if (!isRecord(value)) {
-    return { settings: parseSettings(undefined), queue: [] };
+    return { settings: parseSettings(undefined), queue: [], serverRevision: 0 };
   }
+  const serverRevisionRaw = value.serverRevision;
+  const serverRevision =
+    typeof serverRevisionRaw === 'number' && Number.isInteger(serverRevisionRaw) && serverRevisionRaw >= 0
+      ? serverRevisionRaw
+      : 0;
   return {
     settings: parseSettings(value.settings),
     queue: parseQueue(value.queue),
+    serverRevision,
   };
 }
 

@@ -1,8 +1,9 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "outDir": "dist",
-    "rootDir": "src"
+    "outDir": "dist/types",
+    "rootDir": "src",
+    "emitDeclarationOnly": true
   },
   "references": [
     { "path": "../../packages/protocol" },

@@ -85,6 +85,13 @@ export class VaultDurableObject {
       });
     }
 
+    if (url.pathname === '/snapshot' && method === 'GET') {
+      return json({
+        revision: data.snapshot.revision,
+        files: data.snapshot.files,
+      });
+    }
+
     if (url.pathname === '/push' && method === 'POST') {
       return this.handlePush(request, data);
     }

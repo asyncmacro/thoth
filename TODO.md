@@ -217,22 +217,22 @@
 
 ## Upload
 
-- [ ] Send queued operations
-- [ ] Remove acknowledged operations
+- [x] Send queued operations
+- [x] Remove acknowledged operations
 
 ## Download
 
-- [ ] Download missing operations
-- [ ] Apply operations locally
+- [x] Download missing operations
+- [x] Apply operations locally
 
 ## Startup
 
-- [ ] Initial synchronization
+- [x] Initial synchronization
 
 ## Background
 
-- [ ] Periodic synchronization
-- [ ] Manual synchronization command
+- [x] Periodic synchronization
+- [x] Manual synchronization command
 
 ---
 
@@ -240,13 +240,13 @@
 
 ## Server
 
-- [ ] Snapshot creation
-- [ ] Snapshot persistence
+- [x] Snapshot creation
+- [x] Snapshot persistence
 
 ## Client
 
-- [ ] Restore from snapshot
-- [ ] Apply remaining operations
+- [x] Restore from snapshot
+- [x] Apply remaining operations
 
 ---
 
@@ -254,19 +254,19 @@
 
 ## Recovery
 
-- [ ] Restart during sync
-- [ ] Retry failed uploads
-- [ ] Retry failed downloads
+- [x] Restart during sync
+- [x] Retry failed uploads
+- [x] Retry failed downloads
 
 ## Validation
 
-- [ ] Ignore malformed operations
-- [ ] Recover from invalid server responses
+- [x] Ignore malformed operations
+- [x] Recover from invalid server responses
 
 ## Error reporting
 
-- [ ] Friendly user messages
-- [ ] Developer diagnostics
+- [x] Friendly user messages
+- [x] Developer diagnostics
 
 ---
 
@@ -274,27 +274,27 @@
 
 ## Protocol
 
-- [ ] Serialization tests
-- [ ] Validation tests
+- [x] Serialization tests
+- [x] Validation tests
 
 ## Operation engine
 
-- [ ] Operation application
-- [ ] Revision tracking
-- [ ] Snapshot generation
+- [x] Operation application
+- [x] Revision tracking
+- [x] Snapshot generation
 
 ## Server
 
-- [ ] API tests
-- [ ] Authentication tests
-- [ ] Conflict tests
+- [x] API tests
+- [x] Authentication tests
+- [x] Conflict tests
 
 ## Plugin
 
-- [ ] Queue persistence
-- [ ] Offline synchronization
-- [ ] Startup synchronization
-- [ ] Settings persistence
+- [x] Queue persistence
+- [x] Offline synchronization
+- [x] Startup synchronization
+- [x] Settings persistence
 
 ---
 
@@ -302,11 +302,11 @@
 
 ## Documentation
 
-- [ ] Installation guide
-- [ ] Local development
-- [ ] Deployment guide
-- [ ] API documentation
-- [ ] Protocol documentation
+- [x] Installation guide
+- [x] Local development
+- [x] Deployment guide
+- [x] API documentation
+- [x] Protocol documentation
 
 ---
 
