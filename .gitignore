@@ -9,6 +9,7 @@ coverage
 
 # Production builds
 dist
+**/dist
 build
 *.js
 !apps/server/package.json
