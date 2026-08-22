@@ -22,8 +22,12 @@ export class RetryScheduler {
 
   constructor(
     private readonly options: RetrySchedulerOptions,
-    private readonly setTimeoutFn: typeof setTimeout = setTimeout,
-    private readonly clearTimeoutFn: typeof clearTimeout = clearTimeout
+    private readonly setTimeoutFn: typeof setTimeout = globalThis.setTimeout.bind(
+      globalThis
+    ),
+    private readonly clearTimeoutFn: typeof clearTimeout = globalThis.clearTimeout.bind(
+      globalThis
+    )
   ) {
     this.delayMs = options.baseIntervalMs ?? 60_000;
   }
