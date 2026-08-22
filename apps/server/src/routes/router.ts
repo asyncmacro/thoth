@@ -155,9 +155,15 @@ export function createRouter(env: Env) {
             const doId = env.VAULT_DO.idFromName(vaultId);
             const stub = env.VAULT_DO.get(doId);
             const devicePath = url.pathname.replace(`/vaults/${vaultId}`, '');
+            const hasBody =
+              request.method !== 'GET' && request.method !== 'HEAD';
+            const body = hasBody ? await request.text() : undefined;
+            const headers = new Headers(request.headers);
+            if (hasBody) headers.set('Content-Type', 'application/json');
             const res = await stub.fetch(`https://internal${devicePath}`, {
               method: request.method,
-              headers: request.headers,
+              headers,
+              body,
             });
             return addCors(res);
           }
