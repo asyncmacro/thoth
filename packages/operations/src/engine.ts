@@ -45,7 +45,7 @@ export function operationError(
       }
       return op.payload.newPath in state.files ? 'TARGET_EXISTS' : null;
     case 'replace-content':
-      return op.payload.path in state.files ? null : 'NOTE_NOT_FOUND';
+      return null;
   }
 }
 
