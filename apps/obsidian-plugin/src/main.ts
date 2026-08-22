@@ -142,6 +142,7 @@ export class ThothPlugin extends Plugin {
     }
     this.isSyncing = true;
     let syncSucceeded = false;
+    let listenerWasActive = false;
     try {
       if (
         !this.settings.serverUrl ||
@@ -158,6 +159,13 @@ export class ThothPlugin extends Plugin {
         revision: startedRevision,
         queueSize: this.queue.size,
       });
+
+      // Pause vault listener to avoid enqueuing our own apply changes
+      listenerWasActive = !!this.detachVaultListener;
+      if (this.detachVaultListener) {
+        this.detachVaultListener();
+        this.detachVaultListener = undefined;
+      }
 
       const adapter = this.createVaultAdapter();
 
@@ -235,6 +243,14 @@ export class ThothPlugin extends Plugin {
       console.error('Thoth: sync failed with exception', error);
     } finally {
       this.isSyncing = false;
+      // Re-attach vault listener if it was active
+      if (listenerWasActive) {
+        this.detachVaultListener = attachVaultListener({
+          vault: this.app.vault,
+          queue: this.queue,
+          getDeviceId: () => this.settings.deviceId,
+        });
+      }
       // Provide user feedback only for manual triggers; periodic sync stays silent
     }
   }
