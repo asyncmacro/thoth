@@ -10,7 +10,12 @@ import { OperationQueue } from './queue.js';
 import { attachVaultListener } from './vault-listener.js';
 import { DEFAULT_SETTINGS, type ThothSettings } from './settings.js';
 import { ThothSettingTab } from './settings-tab.js';
-import { uploadOperations, acknowledgeOperations, downloadAndApply, downloadSnapshot } from './sync-engine.js';
+import {
+  uploadOperations,
+  acknowledgeOperations,
+  downloadAndApply,
+  downloadSnapshot,
+} from './sync-engine.js';
 import { RetryScheduler } from './retry-scheduler.js';
 import type { VaultAdapter } from './vault-applier.js';
 import { applySnapshotToVault } from './vault-applier.js';
@@ -149,9 +154,56 @@ export class ThothPlugin extends Plugin {
       }
 
       const startedRevision = this.serverRevision;
-      console.debug('Thoth: sync started', { revision: startedRevision, queueSize: this.queue.size });
+      console.debug('Thoth: sync started', {
+        revision: startedRevision,
+        queueSize: this.queue.size,
+      });
 
-      // Upload queued operations
+      const adapter = this.createVaultAdapter();
+
+      // Restore from snapshot on initial sync before any uploads
+      if (this.serverRevision === 0) {
+        const snapshotResult = await downloadSnapshot({
+          serverUrl: this.settings.serverUrl,
+          vaultId: this.settings.vaultId,
+        });
+        if (snapshotResult.ok) {
+          await applySnapshotToVault(adapter, snapshotResult.files);
+          this.serverRevision = snapshotResult.revision;
+          await this.saveSettings();
+          console.debug('Thoth: restored from snapshot', {
+            revision: snapshotResult.revision,
+            files: Object.keys(snapshotResult.files).length,
+          });
+        } else {
+          console.warn('Thoth: snapshot restore failed', {
+            error: snapshotResult.error,
+          });
+        }
+      }
+
+      // Download missing operations and apply locally first to update revision
+      const downloadResult = await downloadAndApply({
+        serverUrl: this.settings.serverUrl,
+        vaultId: this.settings.vaultId,
+        sinceRevision: this.serverRevision,
+        vault: adapter,
+      });
+      if (downloadResult.ok) {
+        this.serverRevision = downloadResult.newRevision;
+        await this.saveSettings();
+        console.debug('Thoth: downloaded', {
+          from: startedRevision,
+          to: this.serverRevision,
+        });
+        syncSucceeded = true;
+      } else {
+        console.warn('Thoth: download failed, will retry on next sync', {
+          error: downloadResult.error,
+        });
+      }
+
+      // Upload queued operations after pulling latest state
       if (this.queue.size > 0) {
         const baseRevision = this.serverRevision;
         const ops = [...this.queue.all];
@@ -163,47 +215,21 @@ export class ThothPlugin extends Plugin {
         });
         if (uploadResult.ok) {
           const newRevision = uploadResult.newRevision;
-          const removed = acknowledgeOperations(this.queue, baseRevision, newRevision);
+          const removed = acknowledgeOperations(
+            this.queue,
+            baseRevision,
+            newRevision
+          );
           this.serverRevision = newRevision;
           await this.saveSettings();
           console.debug('Thoth: uploaded', { uploaded: removed, newRevision });
+          syncSucceeded = true;
         } else {
-          console.warn('Thoth: upload failed, will retry on next sync', { error: uploadResult.error, baseRevision });
+          console.warn('Thoth: upload failed, will retry on next sync', {
+            error: uploadResult.error,
+            baseRevision,
+          });
         }
-      }
-
-      const adapter = this.createVaultAdapter();
-
-      // Restore from snapshot on initial sync
-      if (this.serverRevision === 0) {
-        const snapshotResult = await downloadSnapshot({
-          serverUrl: this.settings.serverUrl,
-          vaultId: this.settings.vaultId,
-        });
-        if (snapshotResult.ok) {
-          await applySnapshotToVault(adapter, snapshotResult.files);
-          this.serverRevision = snapshotResult.revision;
-          await this.saveSettings();
-          console.debug('Thoth: restored from snapshot', { revision: snapshotResult.revision, files: Object.keys(snapshotResult.files).length });
-        } else {
-          console.warn('Thoth: snapshot restore failed', { error: snapshotResult.error });
-        }
-      }
-
-      // Download missing operations and apply locally
-      const downloadResult = await downloadAndApply({
-        serverUrl: this.settings.serverUrl,
-        vaultId: this.settings.vaultId,
-        sinceRevision: this.serverRevision,
-        vault: adapter,
-      });
-      if (downloadResult.ok) {
-        this.serverRevision = downloadResult.newRevision;
-        await this.saveSettings();
-        console.debug('Thoth: downloaded', { from: startedRevision, to: this.serverRevision });
-        syncSucceeded = true;
-      } else {
-        console.warn('Thoth: download failed, will retry on next sync', { error: downloadResult.error });
       }
     } catch (error) {
       console.error('Thoth: sync failed with exception', error);
