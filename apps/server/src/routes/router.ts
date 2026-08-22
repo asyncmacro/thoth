@@ -7,25 +7,44 @@ import type { Env } from '../types/worker.js';
 export function createRouter(env: Env) {
   const log = createLogger(env);
 
+  const corsHeaders = new Headers({
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  });
+
+  const addCors = (res: any): Response => {
+    const headers = new Headers(res.headers);
+    corsHeaders.forEach((v, k) => headers.set(k, v));
+    return new Response(res.body, {
+      status: res.status,
+      statusText: res.statusText,
+      headers,
+    }) as unknown as Response;
+  };
+
   return async (request: Request) => {
     await Promise.resolve();
     const requestId = crypto.randomUUID();
     const url = new URL(request.url);
 
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: corsHeaders });
+    }
+
     try {
       log.info('request received', { requestId });
 
       if (url.pathname === '/health' && request.method === 'GET') {
-        return healthHandler();
+        return addCors(healthHandler());
       }
 
       if (url.pathname === '/version' && request.method === 'GET') {
-        return new Response(
-          JSON.stringify({ version: env.VERSION ?? '0.1.0' }),
-          {
+        return addCors(
+          new Response(JSON.stringify({ version: env.VERSION ?? '0.1.0' }), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
-          }
+          })
         );
       }
 
@@ -40,10 +59,12 @@ export function createRouter(env: Env) {
             body: JSON.stringify({ id }),
           });
         }
-        return new Response(JSON.stringify({ id, revision: 0 }), {
-          status: 201,
-          headers: { 'Content-Type': 'application/json' },
-        });
+        return addCors(
+          new Response(JSON.stringify({ id, revision: 0 }), {
+            status: 201,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        );
       }
 
       const vaultIdMatch = url.pathname.match(/^\/vaults\/([^/]+)/);
@@ -56,12 +77,14 @@ export function createRouter(env: Env) {
             const doId = env.VAULT_DO.idFromName(vaultId);
             const stub = env.VAULT_DO.get(doId);
             const res = await stub.fetch('https://internal/metadata');
-            if (res.ok) return res;
+            if (res.ok) return addCors(res);
           }
-          return new Response(JSON.stringify({ id: vaultId, revision: 0 }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-          });
+          return addCors(
+            new Response(JSON.stringify({ id: vaultId, revision: 0 }), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            })
+          );
         }
 
         if (
@@ -73,17 +96,19 @@ export function createRouter(env: Env) {
             const stub = env.VAULT_DO.get(doId);
             await stub.fetch('https://internal/purge', { method: 'DELETE' });
           }
-          return new Response(null, { status: 204 });
+          return addCors(new Response(null, { status: 204 }));
         }
 
         // Operation sync routes
         const forwardToVault = async (path: string) => {
           if (!env.VAULT_DO) {
-            return handleError(
-              new HttpError(
-                500,
-                'INTERNAL_ERROR',
-                'Vault Durable Object binding is not configured'
+            return addCors(
+              handleError(
+                new HttpError(
+                  500,
+                  'INTERNAL_ERROR',
+                  'Vault Durable Object binding is not configured'
+                )
               )
             );
           }
@@ -95,11 +120,12 @@ export function createRouter(env: Env) {
           for (const [k, v] of request.headers.entries()) {
             if (k.toLowerCase() !== 'content-type') headers.set(k, v);
           }
-          return stub.fetch(`https://internal${path}`, {
+          const res = await stub.fetch(`https://internal${path}`, {
             method: request.method,
             body,
             headers,
           });
+          return addCors(res);
         };
 
         if (
@@ -133,7 +159,7 @@ export function createRouter(env: Env) {
               method: request.method,
               headers: request.headers,
             });
-            return res;
+            return addCors(res);
           }
           // Fallback for tests without DO binding
           if (
@@ -142,19 +168,23 @@ export function createRouter(env: Env) {
           ) {
             const deviceId = crypto.randomUUID();
             const apiKey = crypto.randomUUID();
-            return new Response(JSON.stringify({ deviceId, apiKey }), {
-              status: 201,
-              headers: { 'Content-Type': 'application/json' },
-            });
+            return addCors(
+              new Response(JSON.stringify({ deviceId, apiKey }), {
+                status: 201,
+                headers: { 'Content-Type': 'application/json' },
+              })
+            );
           }
           if (
             url.pathname === `/vaults/${vaultId}/devices` &&
             request.method === 'GET'
           ) {
-            return new Response(JSON.stringify({ devices: [] }), {
-              status: 200,
-              headers: { 'Content-Type': 'application/json' },
-            });
+            return addCors(
+              new Response(JSON.stringify({ devices: [] }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' },
+              })
+            );
           }
           // Device specific actions fallback
           const deviceActionMatch = url.pathname.match(
@@ -164,36 +194,44 @@ export function createRouter(env: Env) {
             const deviceId = deviceActionMatch[1];
             const action = deviceActionMatch[2] || '';
             if (request.method === 'DELETE' && !action) {
-              return new Response(null, { status: 204 });
+              return addCors(new Response(null, { status: 204 }));
             }
             if (request.method === 'POST' && action === '/rotate') {
               const apiKey = crypto.randomUUID();
-              return new Response(JSON.stringify({ deviceId, apiKey }), {
-                headers: { 'Content-Type': 'application/json' },
-              });
+              return addCors(
+                new Response(JSON.stringify({ deviceId, apiKey }), {
+                  headers: { 'Content-Type': 'application/json' },
+                })
+              );
             }
             if (request.method === 'POST' && action === '/validate') {
-              return new Response(JSON.stringify({ valid: true }), {
-                headers: { 'Content-Type': 'application/json' },
-              });
+              return addCors(
+                new Response(JSON.stringify({ valid: true }), {
+                  headers: { 'Content-Type': 'application/json' },
+                })
+              );
             }
           }
-          return new Response(JSON.stringify({ error: 'NOT_FOUND' }), {
-            status: 404,
-          });
+          return addCors(
+            new Response(JSON.stringify({ error: 'NOT_FOUND' }), {
+              status: 404,
+            })
+          );
         }
       }
 
-      return new Response(
-        JSON.stringify({ error: 'NOT_FOUND', message: 'Route not found' }),
-        {
-          status: 404,
-          headers: { 'Content-Type': 'application/json' },
-        }
+      return addCors(
+        new Response(
+          JSON.stringify({ error: 'NOT_FOUND', message: 'Route not found' }),
+          {
+            status: 404,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
       );
     } catch (err) {
       log.error('handler error', { requestId }, err);
-      return handleError(err, { requestId });
+      return addCors(handleError(err, { requestId }));
     }
   };
 }
