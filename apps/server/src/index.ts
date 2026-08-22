@@ -1,4 +1,7 @@
+import { VaultDurableObject } from './durable-objects/vault.js';
 import type { Env } from './types/worker.js';
+
+export { VaultDurableObject };
 
 export default {
   async fetch(request: Request, env: Env) {

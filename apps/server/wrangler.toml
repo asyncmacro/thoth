@@ -2,6 +2,13 @@ name = "thoth-server"
 main = "src/index.ts"
 compatibility_date = "2024-12-01"
 
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["VaultDurableObject"]
+
+[build]
+command = "pnpm build"
+
 [env.development]
 name = "thoth-server-dev"
 

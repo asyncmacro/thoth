@@ -89,10 +89,16 @@ export function createRouter(env: Env) {
           }
           const doId = env.VAULT_DO.idFromName(vaultId);
           const stub = env.VAULT_DO.get(doId);
+          const hasBody = request.method !== 'GET' && request.method !== 'HEAD';
+          const body = hasBody ? await request.text() : undefined;
+          const headers = new Headers({ 'Content-Type': 'application/json' });
+          for (const [k, v] of request.headers.entries()) {
+            if (k.toLowerCase() !== 'content-type') headers.set(k, v);
+          }
           return stub.fetch(`https://internal${path}`, {
             method: request.method,
-            body: await request.text(),
-            headers: { 'Content-Type': 'application/json' },
+            body,
+            headers,
           });
         };
 
