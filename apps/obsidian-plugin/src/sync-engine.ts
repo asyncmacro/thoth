@@ -13,8 +13,7 @@ function errorMessage(error: unknown): string {
 
 /** Result of an upload attempt. */
 export type UploadResult =
-  | { ok: true; newRevision: number }
-  | { ok: false; error: string };
+  { ok: true; newRevision: number } | { ok: false; error: string };
 
 /** Result of a pull attempt. */
 export type PullResult =
@@ -39,6 +38,12 @@ export async function uploadOperations(params: {
     return { ok: true, newRevision: baseRevision };
   }
 
+  // Re-stamp revisions so the batch is contiguous from baseRevision
+  const stampedOps = operations.map((op, i) => ({
+    ...op,
+    revision: baseRevision + i,
+  }));
+
   try {
     const url = `${baseUrl(serverUrl)}/vaults/${encodeURIComponent(vaultId)}/push`;
     const res = await fetch(url, {
@@ -46,14 +51,18 @@ export async function uploadOperations(params: {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         baseRevision,
-        operations,
+        operations: stampedOps,
       }),
     });
 
     if (!res.ok) {
       if (res.status === 409) {
-        const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-        const message = typeof body.message === 'string' ? body.message : 'revision conflict';
+        const body = (await res.json().catch(() => ({}))) as Record<
+          string,
+          unknown
+        >;
+        const message =
+          typeof body.message === 'string' ? body.message : 'revision conflict';
         return { ok: false, error: `Conflict: ${message}` };
       }
       return { ok: false, error: `Push failed with status ${res.status}` };
@@ -128,7 +137,8 @@ export async function downloadOperations(params: {
       Array.isArray((body as { operations: unknown }).operations)
     ) {
       const revision = (body as { revision: number }).revision;
-      const operations = (body as { operations: unknown[] }).operations as Operation[];
+      const operations = (body as { operations: unknown[] })
+        .operations as Operation[];
       return { ok: true, revision, operations };
     }
 
@@ -145,8 +155,7 @@ export async function downloadOperations(params: {
  * Returns the new server revision on success.
  */
 export type DownloadAndApplyResult =
-  | { ok: true; newRevision: number }
-  | { ok: false; error: string };
+  { ok: true; newRevision: number } | { ok: false; error: string };
 
 export async function downloadAndApply(params: {
   serverUrl: string;
@@ -171,7 +180,10 @@ export async function downloadAndApply(params: {
     if (parsed.ok) {
       validOps.push(parsed.value);
     } else {
-      console.warn('Thoth: ignoring malformed operation', { op, issues: parsed.issues });
+      console.warn('Thoth: ignoring malformed operation', {
+        op,
+        issues: parsed.issues,
+      });
     }
   }
 
@@ -199,7 +211,10 @@ export async function downloadSnapshot(params: {
     const url = `${baseUrl(serverUrl)}/vaults/${encodeURIComponent(vaultId)}/snapshot`;
     const res = await fetch(url, { method: 'GET' });
     if (!res.ok) {
-      return { ok: false, error: `Snapshot fetch failed with status ${res.status}` };
+      return {
+        ok: false,
+        error: `Snapshot fetch failed with status ${res.status}`,
+      };
     }
     const body = (await res.json().catch(() => null)) as unknown;
     if (
@@ -216,6 +231,9 @@ export async function downloadSnapshot(params: {
     }
     return { ok: false, error: 'Snapshot response missing revision or files' };
   } catch (error) {
-    return { ok: false, error: `Snapshot fetch failed: ${errorMessage(error)}` };
+    return {
+      ok: false,
+      error: `Snapshot fetch failed: ${errorMessage(error)}`,
+    };
   }
 }
