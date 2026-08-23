@@ -154,35 +154,35 @@ Phase 5 — Reliability
 
 Recovery
 
-Crash recovery
+[x] Crash recovery
 
-Interrupted upload recovery
+[x] Interrupted upload recovery
 
-Interrupted download recovery
+[x] Interrupted download recovery
 
-Queue recovery
+[x] Queue recovery
 
 
 Integrity
 
-Operation checksum verification
+[x] Operation checksum verification
 
-Snapshot checksum verification
+[x] Snapshot checksum verification
 
-Corruption detection
+[x] Corruption detection
 
-Revision verification
+[x] Revision verification
 
 
 Diagnostics
 
-Sync health report
+[x] Sync health report
 
-Last successful sync
+[x] Last successful sync
 
-Sync statistics
+[x] Sync statistics
 
-Failure history
+[x] Failure history
 
 
 

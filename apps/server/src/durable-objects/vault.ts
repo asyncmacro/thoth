@@ -25,7 +25,8 @@ interface Device {
 interface VaultMetadata {
   id: string;
   devices: Record<string, Device>;
-}
+  lastSyncAt?: number;
+} 
 
 interface AssetMetadata {
   hash: string;
@@ -102,6 +103,17 @@ export class VaultDurableObject {
       return json({
         id: data.metadata.id,
         revision: data.snapshot.revision,
+      });
+    }
+
+    if (url.pathname === '/diagnostics' && method === 'GET') {
+      return json({
+        id: data.metadata.id,
+        revision: data.snapshot.revision,
+        logLength: data.log.operations.length,
+        assetCount: Object.keys(data.assets).length,
+        lastSyncAt: data.metadata.lastSyncAt ?? null,
+        connections: this.connections.size,
       });
     }
 
@@ -250,6 +262,15 @@ export class VaultDurableObject {
       // TODO: validate Authorization header against devices
     }
     const { baseRevision, operations } = parsed.value;
+    // Operation checksum verification
+    for (const op of operations) {
+      if (op.metadata?.checksum) {
+        const payloadHash = await this.hash(JSON.stringify(op.payload));
+        if (payloadHash !== op.metadata.checksum) {
+          return json({ error: 'BAD_REQUEST', message: 'operation checksum mismatch' }, 400);
+        }
+      }
+    }
     const { metadata, log, snapshot } = data;
 
     if (baseRevision !== snapshot.revision) {
@@ -298,8 +319,9 @@ export class VaultDurableObject {
       compactedLog = this.compactLog(compactedLog, applied.state);
     }
 
+    const updatedMetadata = { ...metadata, lastSyncAt: Date.now() };
     await this.save({
-      metadata,
+      metadata: updatedMetadata,
       log: compactedLog,
       snapshot: applied.state,
       assets: data.assets,
@@ -521,6 +543,19 @@ export class VaultDurableObject {
   private async load(): Promise<StoredVault> {
     const stored = await this.state.storage.get<StoredVault>('vault');
     if (stored) {
+      // Crash recovery: verify snapshot integrity
+      const expectedRevision = stored.log.operations.length > 0
+        ? stored.log.operations[stored.log.operations.length - 1].revision + 1
+        : 0;
+      if (stored.snapshot.revision !== expectedRevision) {
+        // Attempt recovery by replaying log
+        const { snapshotFromLog } = await import('@thoth/operations');
+        const recovered = snapshotFromLog(stored.log);
+        if (recovered.ok) {
+          stored.snapshot = recovered.state;
+          await this.state.storage.put('vault', stored);
+        }
+      }
       return stored;
     }
     return {
