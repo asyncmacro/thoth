@@ -19,6 +19,7 @@ export class RetryScheduler {
   private delayMs: number;
   private started = false;
   private running = false;
+  private pending = false;
 
   constructor(
     private readonly options: RetrySchedulerOptions,
@@ -30,6 +31,14 @@ export class RetryScheduler {
     )
   ) {
     this.delayMs = options.baseIntervalMs ?? 60_000;
+  }
+
+  /** Clears any pending timer. */
+  private clearTimer(): void {
+    if (this.timer) {
+      this.clearTimeoutFn(this.timer);
+      this.timer = undefined;
+    }
   }
 
   /** Starts the periodic loop. Safe to call multiple times. */
@@ -52,13 +61,29 @@ export class RetryScheduler {
 
   /** Runs the task immediately (manual sync trigger), then reschedules. */
   async trigger(): Promise<void> {
+    this.clearTimer();
     await this.runOnce();
+  }
+
+  /**
+   * Schedules a run after delayMs, cancelling any pending timer.
+   * Repeated calls debounce the run (trailing edge).
+   */
+  scheduleSoon(delayMs: number): void {
+    if (!this.started) {
+      return;
+    }
+    this.clearTimer();
+    this.timer = this.setTimeoutFn(() => {
+      void this.runOnce();
+    }, delayMs);
   }
 
   private schedule(delayMs: number): void {
     if (!this.started) {
       return;
     }
+    this.clearTimer();
     this.timer = this.setTimeoutFn(() => {
       void this.runOnce();
     }, delayMs);
@@ -66,7 +91,7 @@ export class RetryScheduler {
 
   private async runOnce(): Promise<void> {
     if (this.running) {
-      // A manual trigger already in flight; the periodic loop will run.
+      this.pending = true;
       return;
     }
     this.running = true;
@@ -82,7 +107,13 @@ export class RetryScheduler {
       );
     } finally {
       this.running = false;
-      this.schedule(this.delayMs);
+      if (this.pending) {
+        this.pending = false;
+        // Re-run shortly to handle changes that arrived during the run
+        this.schedule(0);
+      } else {
+        this.schedule(this.delayMs);
+      }
     }
   }
 }

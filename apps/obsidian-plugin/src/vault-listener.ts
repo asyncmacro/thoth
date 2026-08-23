@@ -11,6 +11,8 @@ interface ListenerOptions {
   getDeviceId: () => string;
   /** Returns true while sync is applying server changes to the vault. */
   isSyncing?: () => boolean;
+  /** Called after a local change was enqueued successfully. */
+  onLocalChange?: () => void;
 }
 
 /**
@@ -55,6 +57,7 @@ export function attachVaultListener(options: ListenerOptions): () => void {
       return;
     }
     await queue.enqueue(changeToDraft(change), deviceId);
+    options.onLocalChange?.();
   };
 
   const handleCreateOrModify = async (file: TAbstractFile): Promise<void> => {

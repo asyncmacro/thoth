@@ -20,6 +20,8 @@ import { RetryScheduler } from './retry-scheduler.js';
 import type { VaultAdapter } from './vault-applier.js';
 import { applySnapshotToVault } from './vault-applier.js';
 
+const AUTO_SYNC_DEBOUNCE_MS = 2_000;
+
 // Obsidian loads the plugin entry module and instantiates its default
 // export. The default export is the Obsidian plugin contract; the named
 // export lets other modules import the type without the runtime cycle.
@@ -52,12 +54,29 @@ export class ThothPlugin extends Plugin {
       },
     });
 
+    this.scheduler = new RetryScheduler({
+      task: () => this.performSync(),
+      baseIntervalMs: 60_000,
+      maxDelayMs: 600_000,
+    });
+    this.scheduler.start();
+
     const attachListener = () => {
       this.detachVaultListener = attachVaultListener({
         vault: this.app.vault,
         queue: this.queue,
         getDeviceId: () => this.settings.deviceId,
         isSyncing: () => this.isSyncing,
+        onLocalChange: () => {
+          if (
+            this.settings.serverUrl &&
+            this.settings.vaultId &&
+            this.settings.deviceId &&
+            this.settings.apiKey
+          ) {
+            this.scheduler?.scheduleSoon(AUTO_SYNC_DEBOUNCE_MS);
+          }
+        },
       });
     };
     if (this.app.workspace.layoutReady) {
@@ -65,13 +84,6 @@ export class ThothPlugin extends Plugin {
     } else {
       this.app.workspace.onLayoutReady(attachListener);
     }
-
-    this.scheduler = new RetryScheduler({
-      task: () => this.performSync(),
-      baseIntervalMs: 60_000,
-      maxDelayMs: 600_000,
-    });
-    this.scheduler.start();
 
     // Initial synchronization
     void this.performSync();
