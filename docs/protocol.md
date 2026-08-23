@@ -27,8 +27,8 @@ Thoth synchronizes via atomic operations, not whole files.
 - `PullOperationsRequest` – `{ sinceRevision, protocolVersion?, limit?, continuationToken? }`
 
 ## Responses
-- `PushOperationsResponse` – `{ revision, protocolVersion?, acknowledged? }`
-- `PullOperationsResponse` – `{ revision, operations[], protocolVersion?, continuationToken?, hasMore? }`
+- `PushOperationsResponse` – `{ revision, protocolVersion?, capabilities?, acknowledged? }`
+- `PullOperationsResponse` – `{ revision, operations[], protocolVersion?, capabilities?, continuationToken?, hasMore? }`
 
 ## Validation
 All requests validated with shared schemas in `@thoth/validation`.

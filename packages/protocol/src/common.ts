@@ -11,6 +11,13 @@ export type OperationId = string;
 export type Revision = number;
 export type ProtocolVersion = number;
 
+export type ProtocolCapability =
+  | 'batching'
+  | 'partial-sync'
+  | 'granular-ops'
+  | 'idempotency'
+  | 'version-negotiation';
+
 export interface OperationMetadata {
   [key: string]: unknown;
 }

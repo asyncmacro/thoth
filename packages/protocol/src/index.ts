@@ -4,7 +4,7 @@
  * invent server state.
  */
 
-export { DeviceId, OperationId, OperationMetadata, ProtocolVersion, Revision, VaultId } from './common.js';
+export { DeviceId, OperationId, OperationMetadata, ProtocolCapability, ProtocolVersion, Revision, VaultId } from './common.js';
 export {
   RealtimeClientMessage,
   RealtimeServerMessage,

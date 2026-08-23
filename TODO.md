@@ -39,7 +39,7 @@ Validation
 
 [x] Backward-compatible request parsing
 
-Protocol capability flags
+[x] Protocol capability flags
 
 
 
