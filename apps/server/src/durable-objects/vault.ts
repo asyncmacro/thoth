@@ -262,6 +262,7 @@ export class VaultDurableObject {
       // TODO: validate Authorization header against devices
     }
     const { baseRevision, operations } = parsed.value;
+    const { metadata, log, snapshot } = data;
     // Operation checksum verification
     for (const op of operations) {
       if (op.metadata?.checksum) {
@@ -271,7 +272,6 @@ export class VaultDurableObject {
         }
       }
     }
-    const { metadata, log, snapshot } = data;
 
     if (baseRevision !== snapshot.revision) {
       return json(
@@ -282,6 +282,16 @@ export class VaultDurableObject {
         },
         409
       );
+    }
+    // Duplicate operation detection & replay protection
+    const existingIds = new Set(log.operations.map(op => op.id));
+    const duplicateOps = operations.filter(op => existingIds.has(op.id));
+    if (duplicateOps.length > 0) {
+      return json({
+        error: 'CONFLICT',
+        message: 'duplicate operations detected',
+        details: { reason: 'DUPLICATE_OPERATION', duplicateIds: duplicateOps.map(o => o.id) },
+      }, 409);
     }
 
     const applied = applyOperations(snapshot, operations);

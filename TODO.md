@@ -192,22 +192,22 @@ Phase 6 — Conflict Resolution
 
 Detection
 
-Better concurrent edit detection
+[x] Better concurrent edit detection
 
-Duplicate operation detection
+[x] Duplicate operation detection
 
-Replay protection
+[x] Replay protection
 
 
 Resolution
 
-Improved automatic merges
+[x] Improved automatic merges
 
-Better revision reconciliation
+[x] Better revision reconciliation
 
-Conflict reporting
+[x] Conflict reporting
 
-Retry optimization
+[x] Retry optimization
 
 
 Still not full CRDT.
