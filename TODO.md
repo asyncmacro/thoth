@@ -1,376 +1,479 @@
-# TODO.md
+I would treat v0.2 as "Production Readiness". v0.1 proves the architecture; v0.2 makes it something you'd actually want to use every day.
 
-# Thoth v0.1 Roadmap
-
-> Goal: Build a reliable, offline-first synchronization system for Obsidian using Cloudflare Workers and Durable Objects while remaining entirely within the Cloudflare Free tier.
->
-> Every completed phase should leave the project in a working state.
 
 ---
 
-# Phase 0 — Repository Bootstrap
+Phase 1 — Protocol Evolution
 
-## Monorepo
+Operation Model
 
-- [x] Initialize pnpm workspace
-- [x] Configure TypeScript project references
-- [x] Configure ESLint
-- [x] Configure Prettier
-- [x] Configure Vitest
-- [x] Configure esbuild
-- [x] Configure shared tsconfig
-- [x] Configure CI (lint + typecheck + tests)
+More granular text operations
 
-## Repository
+Stable operation IDs (UUID/ULID)
 
-- [x] Root AGENTS.md
-- [x] Server AGENTS.md
-- [x] Plugin AGENTS.md
-- [x] LICENSE
-- [x] README
-- [x] CONTRIBUTING
-- [x] .editorconfig
-- [x] .gitignore
+Parent revision references
 
-## Packages
+Operation timestamps (informational only)
 
-- [x] packages/protocol
-- [x] packages/operations
-- [x] packages/validation
-- [x] packages/utils
+Device attribution
 
----
+Optional operation metadata
 
-# Phase 1 — Server Foundation
 
-## Cloudflare Worker
+Synchronization
 
-- [x] Worker entrypoint
-- [x] Local development
-- [x] Deployment configuration
-- [x] Environment configuration
+Operation batching
 
-## Health
+Incremental acknowledgements
 
-- [x] GET /health
-- [x] Version endpoint
+Partial sync responses
 
-## Error handling
+Better retry semantics
 
-- [x] Global error handler
-- [x] Structured JSON errors
-- [x] Error identifiers
+Improved idempotency
 
-## Logging
 
-- [x] Request IDs
-- [x] Structured logs
-- [x] Development logging
+Validation
+
+Protocol version negotiation
+
+Backward-compatible request parsing
+
+Protocol capability flags
+
+
 
 ---
 
-# Phase 2 — Vault Management
+Phase 2 — Real-Time Sync
 
-## Vaults
+Connections
 
-- [x] Create vault
-- [x] Retrieve vault metadata
-- [x] Delete vault
+Durable Object WebSocket support
 
-## Devices
+Connection lifecycle management
 
-- [x] Register device
-- [x] Remove device
-- [x] Rotate API key
-- [x] Validate API keys
+Heartbeats
 
-## Durable Object
+Automatic reconnection
 
-- [x] Vault Durable Object
-- [x] Persistent state
-- [x] Revision counter
+Idle timeout handling
 
----
 
-# Phase 3 — Shared Protocol
+Events
 
-## Request models
+Push new operations instantly
 
-- [x] CreateVault
-- [x] RegisterDevice
-- [x] PushOperations
-- [x] PullOperations
+Remote device notifications
 
-## Response models
+Immediate revision updates
 
-- [x] Success responses
-- [x] Error responses
-- [x] Validation errors
+Live vault state
 
-## Validation
 
-- [x] Runtime schemas
-- [x] Shared validation helpers
+Client
+
+Automatic reconnect
+
+Offline detection
+
+Seamless transition between polling and real-time
+
+
 
 ---
 
-# Phase 4 — Operation Engine
+Phase 3 — Attachment Synchronization
 
-## Operation model
+Asset Support
 
-- [x] CreateNote
-- [x] DeleteNote
-- [x] RenameNote
-- [x] ReplaceContent
+Images
 
-## Engine
+PDFs
 
-- [x] Apply operation
-- [x] Validate operation
-- [x] Reject invalid operations
-- [x] Increment revision
+Audio
 
-## Persistence
+Videos
 
-- [x] Append-only operation log
-- [x] Snapshot storage
+Arbitrary files
 
----
 
-# Phase 5 — Synchronization API
+Storage
 
-## Push
+Asset metadata
 
-- [x] Upload operations
-- [x] Validate revisions
-- [x] Store operations
-- [x] Return new revision
+Upload protocol
 
-## Pull
+Download protocol
 
-- [x] Fetch missing operations
-- [x] Return latest revision
+Hash verification
 
-## Conflict handling
+Duplicate detection
 
-- [x] Revision mismatch detection
-- [x] 409 responses
-- [x] Retry workflow support
+
+Synchronization
+
+Asset operations
+
+Missing asset detection
+
+Lazy downloads
+
+Background asset synchronization
+
+
 
 ---
 
-# Phase 6 — Obsidian Plugin Foundation
+Phase 4 — Snapshot Improvements
 
-## Plugin
+Snapshots
 
-- [x] Plugin bootstrap
-- [x] Settings tab
-- [x] Save settings
+Automatic snapshot intervals
 
-## Configuration
+Snapshot compaction
 
-- [x] Server URL
-- [x] API key
-- [x] Device ID
+Snapshot pruning
 
-## Connectivity
+Snapshot verification
 
-- [x] Server health check
-- [x] Authentication test
 
----
+Recovery
 
-# Phase 7 — Local Change Detection
+Restore from snapshot
 
-## File events
+Verify snapshot integrity
 
-- [x] Note created
-- [x] Note modified
-- [x] Note renamed
-- [x] Note deleted
+Snapshot migration
 
-## Operation generation
 
-- [x] Convert events to operations
-- [x] Assign local revisions
-- [x] Queue operations
 
 ---
 
-# Phase 8 — Local Queue
+Phase 5 — Reliability
 
-## Queue
+Recovery
 
-- [x] Persistent queue
-- [x] Load on startup
-- [x] Save after changes
+Crash recovery
 
-## Offline support
+Interrupted upload recovery
 
-- [x] Queue while offline
-- [x] Retry automatically
-- [x] Exponential backoff
+Interrupted download recovery
 
----
+Queue recovery
 
-# Phase 9 — Synchronization Engine
 
-## Upload
+Integrity
 
-- [x] Send queued operations
-- [x] Remove acknowledged operations
+Operation checksum verification
 
-## Download
+Snapshot checksum verification
 
-- [x] Download missing operations
-- [x] Apply operations locally
+Corruption detection
 
-## Startup
+Revision verification
 
-- [x] Initial synchronization
 
-## Background
+Diagnostics
 
-- [x] Periodic synchronization
-- [x] Manual synchronization command
+Sync health report
 
----
+Last successful sync
 
-# Phase 10 — Snapshot Support
+Sync statistics
 
-## Server
+Failure history
 
-- [x] Snapshot creation
-- [x] Snapshot persistence
 
-## Client
-
-- [x] Restore from snapshot
-- [x] Apply remaining operations
 
 ---
 
-# Phase 11 — Reliability
+Phase 6 — Conflict Resolution
 
-## Recovery
+Detection
 
-- [x] Restart during sync
-- [x] Retry failed uploads
-- [x] Retry failed downloads
+Better concurrent edit detection
 
-## Validation
+Duplicate operation detection
 
-- [x] Ignore malformed operations
-- [x] Recover from invalid server responses
+Replay protection
 
-## Error reporting
 
-- [x] Friendly user messages
-- [x] Developer diagnostics
+Resolution
 
----
+Improved automatic merges
 
-# Phase 12 — Testing
+Better revision reconciliation
 
-## Protocol
+Conflict reporting
 
-- [x] Serialization tests
-- [x] Validation tests
+Retry optimization
 
-## Operation engine
 
-- [x] Operation application
-- [x] Revision tracking
-- [x] Snapshot generation
+Still not full CRDT.
 
-## Server
-
-- [x] API tests
-- [x] Authentication tests
-- [x] Conflict tests
-
-## Plugin
-
-- [x] Queue persistence
-- [x] Offline synchronization
-- [x] Startup synchronization
-- [x] Settings persistence
 
 ---
 
-# Phase 13 — Documentation
+Phase 7 — Plugin UX
 
-## Documentation
+Settings
 
-- [x] Installation guide
-- [x] Local development
-- [x] Deployment guide
-- [x] API documentation
-- [x] Protocol documentation
+Connection diagnostics
 
----
+Test connection
 
-# Phase 14 — Release Candidate
+Device information
 
-## Validation
+Sync statistics
 
-- [ ] Desktop testing
-- [ ] Android testing
-- [ ] iOS testing
 
-## Performance
+Commands
 
-- [ ] Measure sync latency
-- [ ] Measure Worker CPU usage
-- [ ] Verify Cloudflare Free compatibility
+Sync now
 
-## Cleanup
+Pause synchronization
 
-- [ ] Remove dead code
-- [ ] Remove debug logging
-- [ ] Final lint
-- [ ] Final typecheck
-- [ ] Final tests
+Resume synchronization
 
----
+Reset local cache
 
-# Definition of Done
 
-A v0.1 release is complete when all of the following are true:
+Status
 
-- [ ] Server deploys successfully to Cloudflare Workers
-- [ ] Entire stack runs on the Cloudflare Free tier
-- [ ] Vaults can be created and synchronized
-- [ ] Devices can register and authenticate
-- [ ] Operations synchronize correctly between two devices
-- [ ] Offline edits synchronize after reconnecting
-- [ ] No data loss occurs during normal synchronization
-- [ ] Plugin works on Obsidian Desktop
-- [ ] Plugin works on Obsidian Mobile (Android & iOS)
-- [ ] All tests pass
-- [ ] TypeScript compiles with zero errors
-- [ ] ESLint passes
-- [ ] Documentation is complete
+Status bar indicator
+
+Current sync state
+
+Queue size
+
+Last synchronization
+
+Active server
+
+
 
 ---
 
-# Future (v0.2+)
+Phase 8 — Performance
 
-These are intentionally excluded from v0.1:
+Server
 
-- [ ] Live collaboration
-- [ ] WebSockets
-- [ ] CRDT-based merging
-- [ ] Multi-user vaults
-- [ ] Shared workspaces
-- [ ] Attachments
-- [ ] Binary synchronization
-- [ ] End-to-end encryption
-- [ ] User accounts
-- [ ] Web dashboard
-- [ ] Presence
-- [ ] Rich conflict resolution UI
-- [ ] Synchronization analytics
-- [ ] Plugin telemetry
-- [ ] Operation compression
-- [ ] Background push notifications
+Reduce Durable Object CPU usage
+
+Reduce storage writes
+
+Smarter serialization
+
+Faster replay
+
+
+Plugin
+
+Incremental vault scanning
+
+Lower memory usage
+
+Reduced startup time
+
+Efficient operation queue
+
+
+
+---
+
+Phase 9 — Security
+
+Authentication
+
+API key rotation
+
+Device revocation
+
+Session validation
+
+
+Validation
+
+Request hardening
+
+Better input validation
+
+Abuse protection
+
+
+Server
+
+Request size limits
+
+Operation count limits
+
+Rate limiting (lightweight)
+
+
+
+---
+
+Phase 10 — Developer Experience
+
+Documentation
+
+Protocol specification
+
+Synchronization flow
+
+Architecture diagrams
+
+Deployment guide
+
+
+Tooling
+
+Local development improvements
+
+Better logging
+
+Debug mode
+
+Replay operation logs
+
+
+Testing
+
+Larger integration suite
+
+Multi-device tests
+
+Long-running sync tests
+
+Stress testing
+
+Performance benchmarks
+
+
+
+---
+
+Phase 11 — API Improvements
+
+API
+
+Versioned endpoints
+
+Capability discovery
+
+Better error responses
+
+Consistent response models
+
+
+Compatibility
+
+Graceful protocol upgrades
+
+Client version checks
+
+
+
+---
+
+Phase 12 — Production Polish
+
+Stability
+
+Memory leak testing
+
+Worker restart testing
+
+Durable Object restart testing
+
+
+Compatibility
+
+Latest Obsidian Desktop
+
+Android
+
+iOS
+
+
+Release
+
+Migration documentation
+
+Upgrade path from v0.1
+
+Changelog
+
+Release validation
+
+
+
+---
+
+Nice-to-Have (Stretch Goals)
+
+These aren't essential, but would be welcome additions if time allows:
+
+Vault sync history and timeline
+
+Per-device sync history
+
+Sync activity log
+
+Sync performance metrics
+
+Optional debug panel
+
+Asset deduplication by hash
+
+Background attachment downloads
+
+Smarter operation compaction
+
+Snapshot export/import
+
+Server maintenance commands
+
+
+
+---
+
+Deliberately Deferred to v0.3+
+
+These are intentionally postponed because they significantly increase architectural complexity:
+
+Multi-user shared vaults
+
+User accounts
+
+Role-based permissions
+
+Live collaborative editing
+
+CRDT implementation
+
+End-to-end encryption
+
+Web dashboard
+
+Plugin marketplace integration
+
+Search indexing
+
+Comments and annotations
+
+Presence indicators
+
+Push notifications
+
+AI-powered features
+
+Cross-vault synchronization
+
+Git interoperability
+
+
+What v0.2 should feel like
+
+The goal isn't to add the most features—it's to make Thoth feel invisible. Users shouldn't think about synchronization at all. They edit notes on one device, open another, and everything is already there. It should recover gracefully from network interruptions, efficiently handle larger vaults and attachments, provide enough diagnostics to troubleshoot issues, and continue to run comfortably within the Cloudflare free tier. At the end of v0.2, Thoth should feel like a dependable piece of infrastructure rather than an experimental sync engine.  
