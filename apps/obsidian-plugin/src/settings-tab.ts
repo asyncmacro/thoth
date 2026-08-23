@@ -15,6 +15,8 @@ export class ThothSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
+    // Refresh device list silently on each open
+    void this.plugin.refreshDeviceList();
 
     new Setting(containerEl)
       .setName('Server URL')
