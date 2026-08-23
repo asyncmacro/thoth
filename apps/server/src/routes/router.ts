@@ -14,6 +14,10 @@ export function createRouter(env: Env) {
   });
 
   const addCors = (res: any): Response => {
+    // WebSocket upgrade responses must be returned verbatim – they carry a webSocket handle
+    if (res && (res as any).webSocket) {
+      return res;
+    }
     const headers = new Headers(res.headers);
     corsHeaders.forEach((v, k) => headers.set(k, v));
     return new Response(res.body, {
