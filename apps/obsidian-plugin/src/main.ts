@@ -46,6 +46,7 @@ export class ThothPlugin extends Plugin {
   private detachVaultListener?: () => void;
   private scheduler?: RetryScheduler;
   private isSyncing = false;
+  private statusBarEl?: HTMLElement;
 
   async onload(): Promise<void> {
     await this.loadPersisted();
@@ -75,6 +76,16 @@ export class ThothPlugin extends Plugin {
     });
     this.scheduler.start();
 
+    this.statusBarEl = this.addStatusBarItem();
+    this.updateStatusBar();
+
+    // Sync on app foreground / visibility change
+    this.registerDomEvent(document, 'visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        void this.scheduler?.trigger();
+      }
+    });
+
     const attachListener = () => {
       this.detachVaultListener = attachVaultListener({
         vault: this.app.vault,
@@ -89,6 +100,7 @@ export class ThothPlugin extends Plugin {
             this.settings.apiKey
           ) {
             this.scheduler?.scheduleSoon(AUTO_SYNC_DEBOUNCE_MS);
+            this.updateStatusBar();
           }
         },
       });
@@ -274,12 +286,40 @@ export class ThothPlugin extends Plugin {
     new Notice('Thoth: sync triggered');
   }
 
+  private updateStatusBar(): void {
+    if (!this.statusBarEl) return;
+    const { serverUrl, vaultId, deviceId, apiKey } = this.settings;
+    const configured = Boolean(serverUrl && vaultId && deviceId && apiKey);
+    if (!configured) {
+      this.statusBarEl.textContent = 'Thoth: not configured';
+      this.statusBarEl.title = 'Thoth is not configured';
+      return;
+    }
+    if (this.isSyncing) {
+      this.statusBarEl.textContent = 'Thoth: syncing…';
+      this.statusBarEl.title = 'Thoth is synchronizing';
+      return;
+    }
+    if (this.queue.size > 0) {
+      this.statusBarEl.textContent = `Thoth: ${this.queue.size} pending`;
+      this.statusBarEl.title = `${this.queue.size} local changes pending sync`;
+      return;
+    }
+    // Show last known revision as a lightweight heartbeat
+    const revText = this.serverRevision
+      ? `rev ${this.serverRevision}`
+      : 'synced';
+    this.statusBarEl.textContent = `Thoth: ${revText}`;
+    this.statusBarEl.title = `Thoth is synced at revision ${this.serverRevision}`;
+  }
+
   private async performSync(): Promise<void> {
     if (this.isSyncing) {
       console.debug('Thoth: sync already in progress, skipping');
       return;
     }
     this.isSyncing = true;
+    this.updateStatusBar();
     let syncSucceeded = false;
     try {
       if (
@@ -379,6 +419,7 @@ export class ThothPlugin extends Plugin {
       console.error('Thoth: sync failed with exception', error);
     } finally {
       this.isSyncing = false;
+      this.updateStatusBar();
       // Provide user feedback only for manual triggers; periodic sync stays silent
     }
   }
