@@ -5,7 +5,8 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc && node build.config.mjs"
+    "build": "tsc && node build.config.mjs",
+    "plugin:install": "node scripts/install-plugin.cjs"
   },
   "dependencies": {
     "@thoth/protocol": "workspace:*",
