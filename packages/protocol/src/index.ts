@@ -4,7 +4,7 @@
  * invent server state.
  */
 
-export { DeviceId, OperationId, Revision, VaultId } from './common.js';
+export { DeviceId, OperationId, OperationMetadata, ProtocolVersion, Revision, VaultId } from './common.js';
 export {
   RealtimeClientMessage,
   RealtimeServerMessage,
@@ -16,12 +16,18 @@ export {
   CreateNotePayload,
   DeleteNoteOperation,
   DeleteNotePayload,
+  DeleteTextOperation,
+  DeleteTextPayload,
+  InsertTextOperation,
+  InsertTextPayload,
   Operation,
   OperationType,
   RenameNoteOperation,
   RenameNotePayload,
   ReplaceContentOperation,
   ReplaceContentPayload,
+  ReplaceRangeOperation,
+  ReplaceRangePayload,
 } from './operations.js';
 export {
   CreateVaultRequest,

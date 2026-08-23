@@ -7,37 +7,37 @@ Phase 1 — Protocol Evolution
 
 Operation Model
 
-More granular text operations
+[x] More granular text operations
 
-Stable operation IDs (UUID/ULID)
+[x] Stable operation IDs (UUID/ULID)
 
-Parent revision references
+[x] Parent revision references
 
-Operation timestamps (informational only)
+[x] Operation timestamps (informational only)
 
-Device attribution
+[x] Device attribution
 
-Optional operation metadata
+[x] Optional operation metadata
 
 
 Synchronization
 
-Operation batching
+[x] Operation batching
 
-Incremental acknowledgements
+[x] Incremental acknowledgements
 
-Partial sync responses
+[x] Partial sync responses
 
-Better retry semantics
+[x] Better retry semantics
 
-Improved idempotency
+[x] Improved idempotency
 
 
 Validation
 
-Protocol version negotiation
+[x] Protocol version negotiation
 
-Backward-compatible request parsing
+[x] Backward-compatible request parsing
 
 Protocol capability flags
 

@@ -4,14 +4,21 @@ import {
   CreateNoteOperation,
   CreateNotePayload,
   DeleteNoteOperation,
+  DeleteTextOperation,
+  DeleteTextPayload,
   ERROR_CODES,
   ErrorResponse,
+  InsertTextOperation,
+  InsertTextPayload,
   Operation,
   PullOperationsResponse,
   PushOperationsRequest,
   RegisterDeviceResponse,
   RenameNoteOperation,
   ReplaceContentOperation,
+  ReplaceContentPayload,
+  ReplaceRangeOperation,
+  ReplaceRangePayload,
   ValidationErrorResponse,
 } from '../index.js';
 
@@ -29,7 +36,7 @@ describe('protocol', () => {
 
   it('operation type is a closed union of supported kinds', () => {
     expectTypeOf<Operation['type']>().toEqualTypeOf<
-      'create-note' | 'delete-note' | 'rename-note' | 'replace-content'
+      'create-note' | 'delete-note' | 'rename-note' | 'replace-content' | 'insert-text' | 'delete-text' | 'replace-range'
     >();
   });
 
@@ -43,6 +50,9 @@ describe('protocol', () => {
       | DeleteNoteOperation['payload']
       | RenameNoteOperation['payload']
       | ReplaceContentOperation['payload']
+      | InsertTextOperation['payload']
+      | DeleteTextOperation['payload']
+      | ReplaceRangeOperation['payload']
     >();
   });
 

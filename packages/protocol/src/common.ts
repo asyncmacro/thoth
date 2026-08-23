@@ -9,3 +9,8 @@ export type VaultId = string;
 export type DeviceId = string;
 export type OperationId = string;
 export type Revision = number;
+export type ProtocolVersion = number;
+
+export interface OperationMetadata {
+  [key: string]: unknown;
+}

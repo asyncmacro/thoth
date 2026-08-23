@@ -69,18 +69,43 @@ const replaceContentPayloadSchema: Validator<
   content: string(),
 });
 
+const insertTextPayloadSchema = object({
+  path: string({ minLength: 1 }),
+  index: integer({ min: 0 }),
+  text: string(),
+});
+
+const deleteTextPayloadSchema = object({
+  path: string({ minLength: 1 }),
+  index: integer({ min: 0 }),
+  length: integer({ min: 0 }),
+});
+
+const replaceRangePayloadSchema = object({
+  path: string({ minLength: 1 }),
+  index: integer({ min: 0 }),
+  length: integer({ min: 0 }),
+  text: string(),
+});
+
 const payloadSchemas: Record<OperationType, Validator<unknown>> = {
   'create-note': createNotePayloadSchema,
   'delete-note': deleteNotePayloadSchema,
   'rename-note': renameNotePayloadSchema,
   'replace-content': replaceContentPayloadSchema,
+  'insert-text': insertTextPayloadSchema,
+  'delete-text': deleteTextPayloadSchema,
+  'replace-range': replaceRangePayloadSchema,
 };
 
 const operationBaseSchema = object({
   id: string({ minLength: 1, maxLength: 200 }),
-  type: oneOf('create-note', 'delete-note', 'rename-note', 'replace-content'),
+  type: oneOf('create-note', 'delete-note', 'rename-note', 'replace-content', 'insert-text', 'delete-text', 'replace-range'),
   deviceId: string({ minLength: 1, maxLength: 200 }),
   revision: integer({ min: 0 }),
+  parentRevision: optional(integer({ min: 0 })),
+  timestamp: optional(integer({ min: 0 })),
+  metadata: optional(unknownObject()),
   payload: unknownObject(),
 });
 
@@ -119,10 +144,15 @@ export const operationSchema: Validator<Operation> = (value) => {
 export const pushOperationsSchema: Validator<PushOperationsRequest> = object({
   baseRevision: integer({ min: 0 }),
   operations: array(operationSchema),
+  protocolVersion: optional(integer({ min: 1 })),
+  requestId: optional(string({ minLength: 1, maxLength: 200 })),
 });
 
 export const pullOperationsSchema: Validator<PullOperationsRequest> = object({
   sinceRevision: integer({ min: 0 }),
+  protocolVersion: optional(integer({ min: 1 })),
+  limit: optional(integer({ min: 1, max: 10000 })),
+  continuationToken: optional(string({ minLength: 1, maxLength: 500 })),
 });
 
 /** Schema for a persisted, append-only operation log. */

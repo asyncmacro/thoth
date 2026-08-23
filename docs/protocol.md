@@ -4,10 +4,13 @@ Thoth synchronizes via atomic operations, not whole files.
 
 ## Core types
 - `Operation` – immutable, ordered by `revision`
-  - `id: string`
-  - `type: 'create-note'|'delete-note'|'rename-note'|'replace-content'`
+  - `id: string` – stable ULID/UUID
+  - `type: 'create-note'|'delete-note'|'rename-note'|'replace-content'|'insert-text'|'delete-text'|'replace-range'`
   - `deviceId: string`
   - `revision: number`
+  - `parentRevision?: number`
+  - `timestamp?: number`
+  - `metadata?: Record<string,unknown>`
   - `payload` – type-specific
 
 ## Operation kinds
@@ -15,14 +18,17 @@ Thoth synchronizes via atomic operations, not whole files.
 - `replace-content` – `{ path, content }`
 - `rename-note` – `{ oldPath, newPath }`
 - `delete-note` – `{ path }`
+- `insert-text` – `{ path, index, text }`
+- `delete-text` – `{ path, index, length }`
+- `replace-range` – `{ path, index, length, text }`
 
 ## Requests
-- `PushOperationsRequest` – `{ baseRevision, operations[] }`
-- `PullOperationsRequest` – `{ sinceRevision }`
+- `PushOperationsRequest` – `{ baseRevision, operations[], protocolVersion?, requestId? }`
+- `PullOperationsRequest` – `{ sinceRevision, protocolVersion?, limit?, continuationToken? }`
 
 ## Responses
-- `PushOperationsResponse` – `{ revision }`
-- `PullOperationsResponse` – `{ revision, operations[] }`
+- `PushOperationsResponse` – `{ revision, protocolVersion?, acknowledged? }`
+- `PullOperationsResponse` – `{ revision, operations[], protocolVersion?, continuationToken?, hasMore? }`
 
 ## Validation
 All requests validated with shared schemas in `@thoth/validation`.

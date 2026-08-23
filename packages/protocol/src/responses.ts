@@ -4,7 +4,7 @@
  * These describe the body of every successful API response.
  */
 
-import type { DeviceId, Revision, VaultId } from './common.js';
+import type { DeviceId, ProtocolVersion, Revision, VaultId } from './common.js';
 import type { Operation } from './operations.js';
 
 export interface CreateVaultResponse {
@@ -35,6 +35,13 @@ export interface RegisterDeviceResponse {
 export interface PushOperationsResponse {
   /** New vault revision after the pushed operations were applied. */
   revision: Revision;
+  /** Protocol version server is responding with. */
+  protocolVersion?: ProtocolVersion;
+  /** Per-operation acknowledgement for idempotency and retry. */
+  acknowledged?: {
+    operationId: string;
+    revision: Revision;
+  }[];
 }
 
 export interface PullOperationsResponse {
@@ -42,6 +49,12 @@ export interface PullOperationsResponse {
   revision: Revision;
   /** Operations the client is missing, in revision order. */
   operations: Operation[];
+  /** Protocol version server is responding with. */
+  protocolVersion?: ProtocolVersion;
+  /** Continuation token if results were truncated. */
+  continuationToken?: string;
+  /** Indicates if more operations remain. */
+  hasMore?: boolean;
 }
 
 export interface HealthResponse {

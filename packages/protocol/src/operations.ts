@@ -6,10 +6,10 @@
  * the discriminated union used on the wire and by the engine.
  */
 
-import type { DeviceId, OperationId, Revision } from './common.js';
+import type { DeviceId, OperationId, OperationMetadata, Revision } from './common.js';
 
 export type OperationType =
-  'create-note' | 'delete-note' | 'rename-note' | 'replace-content';
+  'create-note' | 'delete-note' | 'rename-note' | 'replace-content' | 'insert-text' | 'delete-text' | 'replace-range';
 
 export interface CreateNotePayload {
   /** Vault-relative note path, e.g. "notes/hello". */
@@ -32,12 +32,39 @@ export interface ReplaceContentPayload {
   content: string;
 }
 
+export interface InsertTextPayload {
+  path: string;
+  /** Zero-based character offset. */
+  index: number;
+  text: string;
+}
+
+export interface DeleteTextPayload {
+  path: string;
+  /** Zero-based start offset. */
+  index: number;
+  /** Number of characters to delete. */
+  length: number;
+}
+
+export interface ReplaceRangePayload {
+  path: string;
+  /** Zero-based start offset. */
+  index: number;
+  /** Number of characters to replace. */
+  length: number;
+  text: string;
+}
+
 export interface CreateNoteOperation {
   id: OperationId;
   type: 'create-note';
   deviceId: DeviceId;
   /** Revision this operation applies on top of. */
   revision: Revision;
+  parentRevision?: Revision;
+  timestamp?: number;
+  metadata?: OperationMetadata;
   payload: CreateNotePayload;
 }
 
@@ -46,6 +73,9 @@ export interface DeleteNoteOperation {
   type: 'delete-note';
   deviceId: DeviceId;
   revision: Revision;
+  parentRevision?: Revision;
+  timestamp?: number;
+  metadata?: OperationMetadata;
   payload: DeleteNotePayload;
 }
 
@@ -54,6 +84,9 @@ export interface RenameNoteOperation {
   type: 'rename-note';
   deviceId: DeviceId;
   revision: Revision;
+  parentRevision?: Revision;
+  timestamp?: number;
+  metadata?: OperationMetadata;
   payload: RenameNotePayload;
 }
 
@@ -62,11 +95,50 @@ export interface ReplaceContentOperation {
   type: 'replace-content';
   deviceId: DeviceId;
   revision: Revision;
+  parentRevision?: Revision;
+  timestamp?: number;
+  metadata?: OperationMetadata;
   payload: ReplaceContentPayload;
+}
+
+export interface InsertTextOperation {
+  id: OperationId;
+  type: 'insert-text';
+  deviceId: DeviceId;
+  revision: Revision;
+  parentRevision?: Revision;
+  timestamp?: number;
+  metadata?: OperationMetadata;
+  payload: InsertTextPayload;
+}
+
+export interface DeleteTextOperation {
+  id: OperationId;
+  type: 'delete-text';
+  deviceId: DeviceId;
+  revision: Revision;
+  parentRevision?: Revision;
+  timestamp?: number;
+  metadata?: OperationMetadata;
+  payload: DeleteTextPayload;
+}
+
+export interface ReplaceRangeOperation {
+  id: OperationId;
+  type: 'replace-range';
+  deviceId: DeviceId;
+  revision: Revision;
+  parentRevision?: Revision;
+  timestamp?: number;
+  metadata?: OperationMetadata;
+  payload: ReplaceRangePayload;
 }
 
 export type Operation =
   | CreateNoteOperation
   | DeleteNoteOperation
   | RenameNoteOperation
-  | ReplaceContentOperation;
+  | ReplaceContentOperation
+  | InsertTextOperation
+  | DeleteTextOperation
+  | ReplaceRangeOperation;
