@@ -67,8 +67,7 @@ export class RetryScheduler {
       this.delayMs = base;
     }
     // Keep options.baseIntervalMs in sync for future resets
-    // @ts-expect-error - update dynamic base for phase 2
-    this.options.baseIntervalMs = base;
+    (this.options as any).baseIntervalMs = base;
   }
 
   /** Runs the task immediately (manual sync trigger), then reschedules. */
