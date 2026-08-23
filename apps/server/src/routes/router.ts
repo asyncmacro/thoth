@@ -176,7 +176,8 @@ export function createRouter(env: Env) {
           const stub = env.VAULT_DO.get(doId);
           // Pass original request through to preserve Upgrade headers
           const internalUrl = `https://internal/ws${url.search}`;
-          const res = await stub.fetch(internalUrl, request);
+          const req = new Request(internalUrl, request);
+          const res = await (stub as any).fetch(req);
           // WebSocket upgrade responses contain a `webSocket` property — don't re-wrap
           if ((res as any).webSocket) return res;
           return addCors(res);

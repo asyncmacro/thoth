@@ -326,8 +326,7 @@ export class VaultDurableObject {
   private async broadcastVaultChanged(revision: number): Promise<void> {
     try {
       const message = JSON.stringify({ type: 'vault-changed', revision });
-      // @ts-expect-error - hibernation API
-      const sockets = this.state.getWebSockets?.() ?? [];
+      const sockets = (this.state as any).getWebSockets?.() ?? [];
       for (const ws of sockets) {
         try {
           ws.send(message);
@@ -370,18 +369,16 @@ export class VaultDurableObject {
     // single-use
     await this.state.storage.delete(`ws-ticket:${ticket}`);
     // Upgrade to WebSocket via hibernation API
-    const pair = new WebSocketPair();
+    const pair = new (globalThis as any).WebSocketPair();
     const [client, server] = Object.values(pair) as [WebSocket, WebSocket];
     // Tag socket with device id for future filtering/broadcast
-    // @ts-expect-error - hibernation API may not be typed in older SDKs
-    this.state.acceptWebSocket(server, [deviceId]);
+    (this.state as any).acceptWebSocket(server, [deviceId]);
     // Optional auto-response for ping/pong without waking the DO
-    // @ts-expect-error - hibernation API
-    this.state.setWebSocketAutoResponse?.({
+    (this.state as any).setWebSocketAutoResponse?.({
       request: '{"type":"ping"}',
       response: '{"type":"pong"}',
     });
-    return new Response(null, { status: 101, webSocket: client });
+    return new Response(null, { status: 101, webSocket: client } as any);
   }
 
   async webSocketMessage(
