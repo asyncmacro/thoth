@@ -104,10 +104,13 @@ describe('applyOperation', () => {
     expect(state).toEqual({ revision: 0, files: {} });
   });
 
-  it('rejects creating an existing note', () => {
+  it('upserts an existing note on create', () => {
     const state = { revision: 0, files: { 'notes/a.md': 'x' } };
     const result = applyOperation(state, createNote());
-    expect(result).toEqual({ ok: false, error: 'NOTE_EXISTS' });
+    expect(result).toEqual({
+      ok: true,
+      state: { revision: 1, files: { 'notes/a.md': 'hello' } },
+    });
   });
 
   it('deletes a note', () => {
@@ -153,9 +156,12 @@ describe('applyOperation', () => {
     });
   });
 
-  it('rejects replacing content of a missing note', () => {
+  it('upserts a missing note on replace-content', () => {
     const result = applyOperation(createVaultState(), replaceContent());
-    expect(result).toEqual({ ok: false, error: 'NOTE_NOT_FOUND' });
+    expect(result).toEqual({
+      ok: true,
+      state: { revision: 1, files: { 'notes/a.md': 'updated' } },
+    });
   });
 });
 
@@ -175,11 +181,14 @@ describe('applyOperations', () => {
     expect(result).toEqual({ ok: true, state: { revision: 4, files: {} } });
   });
 
-  it('stops at the first rejected operation', () => {
+  it('applies duplicate creates as upserts', () => {
     const state = createVaultState();
     const operations: Operation[] = [createNote(), createNote({ revision: 1 })];
     const result = applyOperations(state, operations);
-    expect(result).toEqual({ ok: false, error: 'NOTE_EXISTS' });
+    expect(result).toEqual({
+      ok: true,
+      state: { revision: 2, files: { 'notes/a.md': 'hello' } },
+    });
   });
 
   it('leaves the input state untouched on failure', () => {

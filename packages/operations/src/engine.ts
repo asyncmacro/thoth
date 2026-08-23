@@ -36,7 +36,9 @@ export function operationError(
 
   switch (op.type) {
     case 'create-note':
-      return op.payload.path in state.files ? 'NOTE_EXISTS' : null;
+      // Upsert semantics: create-note is idempotent and overwrites existing notes
+      // This aligns with the client vault-applier and allows clean first-sync imports
+      return null;
     case 'delete-note':
       return op.payload.path in state.files ? null : 'NOTE_NOT_FOUND';
     case 'rename-note':

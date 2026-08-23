@@ -52,11 +52,19 @@ export class ThothPlugin extends Plugin {
       },
     });
 
-    this.detachVaultListener = attachVaultListener({
-      vault: this.app.vault,
-      queue: this.queue,
-      getDeviceId: () => this.settings.deviceId,
-    });
+    const attachListener = () => {
+      this.detachVaultListener = attachVaultListener({
+        vault: this.app.vault,
+        queue: this.queue,
+        getDeviceId: () => this.settings.deviceId,
+        isSyncing: () => this.isSyncing,
+      });
+    };
+    if (this.app.workspace.layoutReady) {
+      attachListener();
+    } else {
+      this.app.workspace.onLayoutReady(attachListener);
+    }
 
     this.scheduler = new RetryScheduler({
       task: () => this.performSync(),
@@ -142,7 +150,6 @@ export class ThothPlugin extends Plugin {
     }
     this.isSyncing = true;
     let syncSucceeded = false;
-    let listenerWasActive = false;
     try {
       if (
         !this.settings.serverUrl ||
@@ -160,22 +167,17 @@ export class ThothPlugin extends Plugin {
         queueSize: this.queue.size,
       });
 
-      // Pause vault listener to avoid enqueuing our own apply changes
-      listenerWasActive = !!this.detachVaultListener;
-      if (this.detachVaultListener) {
-        this.detachVaultListener();
-        this.detachVaultListener = undefined;
-      }
-
       const adapter = this.createVaultAdapter();
 
       // Restore from snapshot on initial sync before any uploads
+      let snapshotFiles: Record<string, string> = {};
       if (this.serverRevision === 0) {
         const snapshotResult = await downloadSnapshot({
           serverUrl: this.settings.serverUrl,
           vaultId: this.settings.vaultId,
         });
         if (snapshotResult.ok) {
+          snapshotFiles = snapshotResult.files;
           await applySnapshotToVault(adapter, snapshotResult.files);
           this.serverRevision = snapshotResult.revision;
           await this.saveSettings();
@@ -205,6 +207,9 @@ export class ThothPlugin extends Plugin {
           to: this.serverRevision,
         });
         syncSucceeded = true;
+        if (startedRevision === 0) {
+          await this.bootstrapLocalVault(snapshotFiles);
+        }
       } else {
         console.warn('Thoth: download failed, will retry on next sync', {
           error: downloadResult.error,
@@ -243,15 +248,48 @@ export class ThothPlugin extends Plugin {
       console.error('Thoth: sync failed with exception', error);
     } finally {
       this.isSyncing = false;
-      // Re-attach vault listener if it was active
-      if (listenerWasActive) {
-        this.detachVaultListener = attachVaultListener({
-          vault: this.app.vault,
-          queue: this.queue,
-          getDeviceId: () => this.settings.deviceId,
-        });
-      }
       // Provide user feedback only for manual triggers; periodic sync stays silent
+    }
+  }
+
+  private async bootstrapLocalVault(
+    serverFiles: Record<string, string>
+  ): Promise<void> {
+    if (!this.settings.deviceId) {
+      console.debug('Thoth: bootstrap skipped, device not configured');
+      return;
+    }
+    const mdFiles = this.app.vault.getMarkdownFiles();
+    let enqueued = 0;
+    for (const file of mdFiles) {
+      const path = file.path;
+      const serverContent = serverFiles[path];
+      if (serverContent === undefined) {
+        // Local file not on server → enqueue create
+        const content = await this.app.vault.read(file);
+        await this.queue.enqueue(
+          { type: 'create-note', payload: { path, content } },
+          this.settings.deviceId
+        );
+        enqueued++;
+      } else {
+        // Exists on server, check for divergence
+        const localContent = await this.app.vault.read(file);
+        if (localContent !== serverContent) {
+          await this.queue.enqueue(
+            {
+              type: 'replace-content',
+              payload: { path, content: localContent },
+            },
+            this.settings.deviceId
+          );
+          enqueued++;
+        }
+      }
+    }
+    if (enqueued > 0) {
+      await this.saveQueue(this.queue);
+      console.debug('Thoth: bootstrapped local vault', { enqueued });
     }
   }
 

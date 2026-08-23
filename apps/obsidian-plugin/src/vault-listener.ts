@@ -9,6 +9,8 @@ interface ListenerOptions {
   queue: OperationQueue;
   /** Returns the configured device id; empty until the user registers. */
   getDeviceId: () => string;
+  /** Returns true while sync is applying server changes to the vault. */
+  isSyncing?: () => boolean;
 }
 
 /**
@@ -43,6 +45,10 @@ export function attachVaultListener(options: ListenerOptions): () => void {
   };
 
   const enqueue = async (change: FileChange): Promise<void> => {
+    if (options.isSyncing?.()) {
+      // Ignore changes we made ourselves while applying server state
+      return;
+    }
     const deviceId = getDeviceId().trim();
     if (!deviceId) {
       // Without a registered device the operation could never be pushed.
