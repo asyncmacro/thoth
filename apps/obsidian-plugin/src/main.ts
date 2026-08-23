@@ -32,6 +32,7 @@ import {
 import { RetryScheduler } from './retry-scheduler.js';
 import type { VaultAdapter } from './vault-applier.js';
 import { applySnapshotToVault } from './vault-applier.js';
+import { connectRealtime, type RealtimeStatus } from './realtime-client.js';
 
 const AUTO_SYNC_DEBOUNCE_MS = 2_000;
 
@@ -47,6 +48,8 @@ export class ThothPlugin extends Plugin {
   private scheduler?: RetryScheduler;
   private isSyncing = false;
   private statusBarEl?: HTMLElement;
+  private realtimeClient?: { close(): void };
+  private realtimeStatus: RealtimeStatus = 'closed';
 
   async onload(): Promise<void> {
     await this.loadPersisted();
@@ -78,6 +81,8 @@ export class ThothPlugin extends Plugin {
 
     this.statusBarEl = this.addStatusBarItem();
     this.updateStatusBar();
+
+    this.ensureRealtimeClient();
 
     // Sync on app foreground / visibility change
     this.registerDomEvent(document, 'visibilitychange', () => {
@@ -124,6 +129,8 @@ export class ThothPlugin extends Plugin {
       this.scheduler.stop();
       this.scheduler = undefined;
     }
+    this.realtimeClient?.close();
+    this.realtimeClient = undefined;
   }
 
   /** Restores settings and the persisted operation queue on startup. */
@@ -141,6 +148,7 @@ export class ThothPlugin extends Plugin {
       queue: [...this.queue.all],
       serverRevision: this.serverRevision,
     });
+    this.ensureRealtimeClient();
   }
 
   async saveQueue(queue: OperationQueue): Promise<void> {
@@ -300,8 +308,9 @@ export class ThothPlugin extends Plugin {
       this.statusBarEl.title = 'Thoth is synchronizing';
       return;
     }
+    const live = this.realtimeStatus === 'open' ? '● live' : '○ polling';
     if (this.queue.size > 0) {
-      this.statusBarEl.textContent = `Thoth: ${this.queue.size} pending`;
+      this.statusBarEl.textContent = `Thoth: ${this.queue.size} pending ${live}`;
       this.statusBarEl.title = `${this.queue.size} local changes pending sync`;
       return;
     }
@@ -309,8 +318,40 @@ export class ThothPlugin extends Plugin {
     const revText = this.serverRevision
       ? `rev ${this.serverRevision}`
       : 'synced';
-    this.statusBarEl.textContent = `Thoth: ${revText}`;
+    this.statusBarEl.textContent = `Thoth: ${revText} ${live}`;
     this.statusBarEl.title = `Thoth is synced at revision ${this.serverRevision}`;
+  }
+
+  private ensureRealtimeClient(): void {
+    const { serverUrl, vaultId, deviceId, apiKey } = this.settings;
+    const configured = Boolean(serverUrl && vaultId && deviceId && apiKey);
+    if (!configured) {
+      this.realtimeClient?.close();
+      this.realtimeClient = undefined;
+      this.realtimeStatus = 'closed';
+      this.scheduler?.updateBaseInterval(60_000);
+      this.updateStatusBar();
+      return;
+    }
+    if (this.realtimeClient) {
+      // already connected with current settings
+      return;
+    }
+    this.scheduler?.updateBaseInterval(300_000);
+    this.realtimeClient = connectRealtime({
+      serverUrl,
+      vaultId,
+      deviceId,
+      apiKey,
+      getLocalRevision: () => this.serverRevision,
+      requestSync: () => {
+        void this.scheduler?.trigger();
+      },
+      onStatusChange: (status) => {
+        this.realtimeStatus = status;
+        this.updateStatusBar();
+      },
+    });
   }
 
   private async performSync(): Promise<void> {

@@ -6,6 +6,12 @@
 
 export { DeviceId, OperationId, Revision, VaultId } from './common.js';
 export {
+  RealtimeClientMessage,
+  RealtimeServerMessage,
+  WsTicketRequest,
+  WsTicketResponse,
+} from './realtime.js';
+export {
   CreateNoteOperation,
   CreateNotePayload,
   DeleteNoteOperation,

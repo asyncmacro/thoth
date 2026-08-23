@@ -21,3 +21,9 @@ export function nextBackoffDelay(
 export function resetBackoffDelay(base: number): number {
   return base;
 }
+
+/** Apply +/- 20% jitter to avoid thundering herd. Deterministic when Math.random is mocked. */
+export function withJitter(delay: number): number {
+  const jitter = (Math.random() - 0.5) * 0.4; // [-0.2, +0.2]
+  return Math.max(1, Math.round(delay * (1 + jitter)));
+}

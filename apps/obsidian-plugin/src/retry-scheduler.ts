@@ -59,6 +59,18 @@ export class RetryScheduler {
     }
   }
 
+  /** Update the base interval used for successful runs; next schedule uses new base. */
+  updateBaseInterval(ms: number): void {
+    const base = Math.max(1, ms);
+    // If not backed off (delay equals current base), update immediately
+    if (this.delayMs === (this.options.baseIntervalMs ?? 60_000)) {
+      this.delayMs = base;
+    }
+    // Keep options.baseIntervalMs in sync for future resets
+    // @ts-expect-error - update dynamic base for phase 2
+    this.options.baseIntervalMs = base;
+  }
+
   /** Runs the task immediately (manual sync trigger), then reschedules. */
   async trigger(): Promise<void> {
     this.clearTimer();

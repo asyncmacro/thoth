@@ -149,6 +149,39 @@ export function createRouter(env: Env) {
           return forwardToVault('/snapshot');
         }
 
+        if (
+          url.pathname === `/vaults/${vaultId}/ws-ticket` &&
+          request.method === 'POST'
+        ) {
+          return forwardToVault('/ws-ticket');
+        }
+
+        // WebSocket upgrade — return DO response verbatim without CORS re-wrap
+        if (
+          url.pathname === `/vaults/${vaultId}/ws` &&
+          request.method === 'GET'
+        ) {
+          if (!env.VAULT_DO) {
+            return addCors(
+              handleError(
+                new HttpError(
+                  500,
+                  'INTERNAL_ERROR',
+                  'Vault Durable Object binding is not configured'
+                )
+              )
+            );
+          }
+          const doId = env.VAULT_DO.idFromName(vaultId);
+          const stub = env.VAULT_DO.get(doId);
+          // Pass original request through to preserve Upgrade headers
+          const internalUrl = `https://internal/ws${url.search}`;
+          const res = await stub.fetch(internalUrl, request);
+          // WebSocket upgrade responses contain a `webSocket` property — don't re-wrap
+          if ((res as any).webSocket) return res;
+          return addCors(res);
+        }
+
         // Device routes
         if (url.pathname.startsWith(`/vaults/${vaultId}/devices`)) {
           if (env.VAULT_DO) {

@@ -6,8 +6,12 @@ import {
   operationSchema,
   pullOperationsSchema,
   pushOperationsSchema,
+  realtimeClientMessageSchema,
+  realtimeServerMessageSchema,
   registerDeviceSchema,
   snapshotSchema,
+  wsTicketRequestSchema,
+  wsTicketResponseSchema,
 } from '../index.js';
 
 const validOperation = {
@@ -260,5 +264,77 @@ describe('snapshotSchema', () => {
         { path: 'files.a.md', message: 'expected a string' },
       ]);
     }
+  });
+});
+
+describe('wsTicketRequestSchema', () => {
+  it('accepts a valid body', () => {
+    expect(wsTicketRequestSchema({ deviceId: 'd', apiKey: 'k' }).ok).toBe(true);
+  });
+
+  it('rejects empty strings', () => {
+    expect(wsTicketRequestSchema({ deviceId: '', apiKey: 'k' }).ok).toBe(false);
+    expect(wsTicketRequestSchema({ deviceId: 'd', apiKey: '' }).ok).toBe(false);
+  });
+
+  it('rejects unknown keys', () => {
+    const result = wsTicketRequestSchema({
+      deviceId: 'd',
+      apiKey: 'k',
+      extra: 1,
+    });
+    expect(result.ok).toBe(false);
+  });
+});
+
+describe('wsTicketResponseSchema', () => {
+  it('accepts a valid response', () => {
+    expect(wsTicketResponseSchema({ ticket: 't', expiresAt: 123 }).ok).toBe(
+      true
+    );
+  });
+
+  it('rejects negative expiresAt', () => {
+    expect(wsTicketResponseSchema({ ticket: 't', expiresAt: -1 }).ok).toBe(
+      false
+    );
+  });
+});
+
+describe('realtimeServerMessageSchema', () => {
+  it('accepts vault-changed', () => {
+    expect(
+      realtimeServerMessageSchema({ type: 'vault-changed', revision: 5 }).ok
+    ).toBe(true);
+  });
+
+  it('accepts pong', () => {
+    expect(realtimeServerMessageSchema({ type: 'pong' }).ok).toBe(true);
+  });
+
+  it('rejects unknown type', () => {
+    expect(realtimeServerMessageSchema({ type: 'unknown' }).ok).toBe(false);
+  });
+
+  it('rejects negative revision', () => {
+    expect(
+      realtimeServerMessageSchema({ type: 'vault-changed', revision: -1 }).ok
+    ).toBe(false);
+  });
+});
+
+describe('realtimeClientMessageSchema', () => {
+  it('accepts ping', () => {
+    expect(realtimeClientMessageSchema({ type: 'ping' }).ok).toBe(true);
+  });
+
+  it('rejects non-ping types', () => {
+    expect(realtimeClientMessageSchema({ type: 'pong' }).ok).toBe(false);
+  });
+
+  it('rejects extra keys', () => {
+    expect(realtimeClientMessageSchema({ type: 'ping', extra: 1 }).ok).toBe(
+      false
+    );
   });
 });

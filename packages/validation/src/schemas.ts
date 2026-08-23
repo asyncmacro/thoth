@@ -135,3 +135,72 @@ export const snapshotSchema = object({
   revision: integer({ min: 0 }),
   files: record(string()),
 });
+
+/** Schema for a WebSocket ticket request body. */
+export const wsTicketRequestSchema: Validator<{
+  deviceId: string;
+  apiKey: string;
+}> = object({
+  deviceId: string({ minLength: 1 }),
+  apiKey: string({ minLength: 1 }),
+});
+
+/** Schema for a WebSocket ticket response body. */
+export const wsTicketResponseSchema: Validator<{
+  ticket: string;
+  expiresAt: number;
+}> = object({
+  ticket: string({ minLength: 1 }),
+  expiresAt: integer({ min: 0 }),
+});
+
+/** Schema for server→client realtime messages. */
+export const realtimeServerMessageSchema = (value: unknown) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return { ok: false, issues: [{ path: '', message: 'expected an object' }] };
+  }
+  const record = value as Record<string, unknown>;
+  const type = record.type;
+  if (type === 'vault-changed') {
+    const revisionResult = integer({ min: 0 })(record.revision);
+    if (!revisionResult.ok) {
+      return {
+        ok: false,
+        issues: revisionResult.issues.map((i) => ({
+          path: 'revision',
+          message: i.message,
+        })),
+      };
+    }
+    return { ok: true, value: { type, revision: revisionResult.value } };
+  }
+  if (type === 'pong') {
+    for (const k of Object.keys(record)) {
+      if (k !== 'type') {
+        return { ok: false, issues: [{ path: k, message: 'unexpected key' }] };
+      }
+    }
+    return { ok: true, value: { type } };
+  }
+  return {
+    ok: false,
+    issues: [{ path: 'type', message: 'expected vault-changed or pong' }],
+  };
+};
+
+/** Schema for client→server realtime messages. */
+export const realtimeClientMessageSchema = (value: unknown) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return { ok: false, issues: [{ path: '', message: 'expected an object' }] };
+  }
+  const record = value as Record<string, unknown>;
+  if (record.type !== 'ping') {
+    return { ok: false, issues: [{ path: 'type', message: 'expected ping' }] };
+  }
+  for (const k of Object.keys(record)) {
+    if (k !== 'type') {
+      return { ok: false, issues: [{ path: k, message: 'unexpected key' }] };
+    }
+  }
+  return { ok: true, value: { type: 'ping' } };
+};

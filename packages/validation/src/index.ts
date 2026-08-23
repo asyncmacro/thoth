@@ -26,6 +26,10 @@ export {
   operationSchema,
   pullOperationsSchema,
   pushOperationsSchema,
+  realtimeClientMessageSchema,
+  realtimeServerMessageSchema,
   registerDeviceSchema,
   snapshotSchema,
+  wsTicketRequestSchema,
+  wsTicketResponseSchema,
 } from './schemas.js';

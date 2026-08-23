@@ -11,7 +11,9 @@ import {
 import {
   pullOperationsSchema,
   pushOperationsSchema,
+  realtimeClientMessageSchema,
   registerDeviceSchema,
+  wsTicketRequestSchema,
 } from '@thoth/validation';
 
 interface Device {
@@ -95,6 +97,14 @@ export class VaultDurableObject {
         revision: data.snapshot.revision,
         files: data.snapshot.files,
       });
+    }
+
+    if (url.pathname === '/ws-ticket' && method === 'POST') {
+      return this.handleWsTicket(request, data);
+    }
+
+    if (url.pathname === '/ws' && method === 'GET') {
+      return this.handleWsUpgrade(request, data);
     }
 
     if (url.pathname === '/push' && method === 'POST') {
@@ -261,6 +271,8 @@ export class VaultDurableObject {
       log: nextLog,
       snapshot: applied.state,
     });
+    // Notify connected clients about the new revision
+    await this.broadcastVaultChanged(applied.state.revision);
     return json({ revision: applied.state.revision });
   }
 
@@ -282,6 +294,129 @@ export class VaultDurableObject {
       revision: data.snapshot.revision,
       operations,
     });
+  }
+
+  private async handleWsTicket(
+    request: Request,
+    data: StoredVault
+  ): Promise<Response> {
+    const body = await request.json().catch(() => null);
+    const parsed = wsTicketRequestSchema(body);
+    if (!parsed.ok) {
+      return validationErrorResponse(parsed.issues);
+    }
+    const { deviceId, apiKey } = parsed.value;
+    const device = data.metadata.devices[deviceId];
+    if (!device) {
+      return json({ error: 'UNAUTHORIZED', message: 'device not found' }, 401);
+    }
+    const hash = await this.hash(apiKey);
+    if (hash !== device.apiKeyHash) {
+      return json({ error: 'UNAUTHORIZED', message: 'invalid api key' }, 401);
+    }
+    const ticket = crypto.randomUUID();
+    const expiresAt = Date.now() + 60_000;
+    await this.state.storage.put(`ws-ticket:${ticket}`, {
+      deviceId,
+      expiresAt,
+    });
+    return json({ ticket, expiresAt }, 201);
+  }
+
+  private async broadcastVaultChanged(revision: number): Promise<void> {
+    try {
+      const message = JSON.stringify({ type: 'vault-changed', revision });
+      // @ts-expect-error - hibernation API
+      const sockets = this.state.getWebSockets?.() ?? [];
+      for (const ws of sockets) {
+        try {
+          ws.send(message);
+        } catch {
+          // ignore closed sockets
+        }
+      }
+    } catch {
+      // ignore broadcast errors
+    }
+  }
+
+  private async handleWsUpgrade(
+    request: Request,
+    _data: StoredVault
+  ): Promise<Response> {
+    const url = new URL(request.url);
+    const deviceId = url.searchParams.get('deviceId') ?? '';
+    const ticket = url.searchParams.get('ticket') ?? '';
+    if (!deviceId || !ticket) {
+      return json(
+        { error: 'BAD_REQUEST', message: 'missing ticket or deviceId' },
+        400
+      );
+    }
+    const stored = await this.state.storage.get<{
+      deviceId: string;
+      expiresAt: number;
+    }>(`ws-ticket:${ticket}`);
+    if (
+      !stored ||
+      stored.deviceId !== deviceId ||
+      stored.expiresAt < Date.now()
+    ) {
+      return json(
+        { error: 'UNAUTHORIZED', message: 'invalid or expired ticket' },
+        401
+      );
+    }
+    // single-use
+    await this.state.storage.delete(`ws-ticket:${ticket}`);
+    // Upgrade to WebSocket via hibernation API
+    const pair = new WebSocketPair();
+    const [client, server] = Object.values(pair) as [WebSocket, WebSocket];
+    // Tag socket with device id for future filtering/broadcast
+    // @ts-expect-error - hibernation API may not be typed in older SDKs
+    this.state.acceptWebSocket(server, [deviceId]);
+    // Optional auto-response for ping/pong without waking the DO
+    // @ts-expect-error - hibernation API
+    this.state.setWebSocketAutoResponse?.({
+      request: '{"type":"ping"}',
+      response: '{"type":"pong"}',
+    });
+    return new Response(null, { status: 101, webSocket: client });
+  }
+
+  async webSocketMessage(
+    ws: WebSocket,
+    message: string | ArrayBuffer
+  ): Promise<void> {
+    try {
+      const text =
+        typeof message === 'string'
+          ? message
+          : new TextDecoder().decode(message);
+      const parsed = JSON.parse(text);
+      const validated = realtimeClientMessageSchema(parsed);
+      if (!validated.ok) {
+        // Invalid client message — close the connection
+        try {
+          ws.close(1008, 'invalid message');
+        } catch {}
+        return;
+      }
+      // ping is auto-responded via setWebSocketAutoResponse; no further action needed
+    } catch {
+      try {
+        ws.close(1008, 'invalid message');
+      } catch {}
+    }
+  }
+
+  async webSocketClose(
+    ws: WebSocket,
+    code: number,
+    reason: string,
+    wasClean: boolean
+  ): Promise<void> {
+    // No cleanup required; hibernation API manages socket lifecycle
   }
 
   private async load(): Promise<StoredVault> {
