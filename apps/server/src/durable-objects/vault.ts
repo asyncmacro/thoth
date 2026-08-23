@@ -27,10 +27,18 @@ interface VaultMetadata {
   devices: Record<string, Device>;
 }
 
+interface AssetMetadata {
+  hash: string;
+  size: number;
+  mimeType?: string;
+  uploadedAt: number;
+}
+
 interface StoredVault {
   metadata: VaultMetadata;
   log: OperationLog;
   snapshot: VaultState;
+  assets: Record<string, AssetMetadata>;
 }
 
 /** Structured 400 error matching the protocol ValidationErrorResponse. */
@@ -100,6 +108,14 @@ export class VaultDurableObject {
         revision: data.snapshot.revision,
         files: data.snapshot.files,
       });
+    }
+
+    if (url.pathname.startsWith('/assets/') && method === 'PUT') {
+      return this.handleAssetUpload(request, data);
+    }
+
+    if (url.pathname.startsWith('/assets/') && method === 'GET') {
+      return this.handleAssetDownload(request, data);
     }
 
     if (url.pathname === '/ws-ticket' && method === 'POST') {
@@ -306,6 +322,46 @@ export class VaultDurableObject {
     });
   }
 
+  private async handleAssetUpload(request: Request, data: StoredVault): Promise<Response> {
+    const url = new URL(request.url);
+    const parts = url.pathname.split('/');
+    const assetId = parts[2];
+    if (!assetId) {
+      return json({ error: 'BAD_REQUEST', message: 'missing assetId' }, 400);
+    }
+    const body = await request.arrayBuffer();
+    const size = body.byteLength;
+    // Simple hash for verification – SHA-256 hex
+    const hashBuffer = await crypto.subtle.digest('SHA-256', body);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    const mimeType = request.headers.get('content-type') ?? 'application/octet-stream';
+    await this.state.storage.put(`asset:${assetId}`, body);
+    data.assets[assetId] = { hash, size, mimeType, uploadedAt: Date.now() };
+    await this.save(data);
+    return json({ assetId, hash, size });
+  }
+
+  private async handleAssetDownload(request: Request, data: StoredVault): Promise<Response> {
+    const url = new URL(request.url);
+    const parts = url.pathname.split('/');
+    const assetId = parts[2];
+    if (!assetId) {
+      return json({ error: 'BAD_REQUEST', message: 'missing assetId' }, 400);
+    }
+    const meta = data.assets[assetId];
+    if (!meta) {
+      return json({ error: 'NOT_FOUND' }, 404);
+    }
+    const buf = await this.state.storage.get<ArrayBuffer>(`asset:${assetId}`);
+    if (!buf) {
+      return json({ error: 'NOT_FOUND' }, 404);
+    }
+    return new Response(buf, {
+      headers: { 'Content-Type': meta.mimeType ?? 'application/octet-stream' },
+    });
+  }
+
   private async handleWsTicket(
     request: Request,
     data: StoredVault
@@ -462,6 +518,7 @@ export class VaultDurableObject {
       metadata: { id: 'unknown', devices: {} },
       log: createOperationLog(),
       snapshot: createVaultState(),
+      assets: {},
     };
   }
 

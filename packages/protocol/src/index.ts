@@ -4,7 +4,7 @@
  * invent server state.
  */
 
-export { DeviceId, OperationId, OperationMetadata, ProtocolCapability, ProtocolVersion, Revision, VaultId } from './common.js';
+export { AssetId, DeviceId, OperationId, OperationMetadata, ProtocolCapability, ProtocolVersion, Revision, VaultId } from './common.js';
 export {
   RealtimeClientMessage,
   RealtimeServerMessage,
@@ -12,8 +12,12 @@ export {
   WsTicketResponse,
 } from './realtime.js';
 export {
+  AddAssetOperation,
+  AddAssetPayload,
   CreateNoteOperation,
   CreateNotePayload,
+  DeleteAssetOperation,
+  DeleteAssetPayload,
   DeleteNoteOperation,
   DeleteNotePayload,
   DeleteTextOperation,

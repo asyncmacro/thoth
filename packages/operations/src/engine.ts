@@ -48,6 +48,13 @@ export function operationError(
       return op.payload.newPath in state.files ? 'TARGET_EXISTS' : null;
     case 'replace-content':
       return null;
+    case 'insert-text':
+    case 'delete-text':
+    case 'replace-range':
+      return op.payload.path in state.files ? null : 'NOTE_NOT_FOUND';
+    case 'add-asset':
+    case 'delete-asset':
+      return null;
   }
 }
 
@@ -77,6 +84,30 @@ export function applyOperation(state: VaultState, op: Operation): ApplyResult {
     }
     case 'replace-content':
       files[op.payload.path] = op.payload.content;
+      break;
+    case 'insert-text': {
+      const existing = files[op.payload.path] ?? '';
+      const idx = Math.min(Math.max(op.payload.index, 0), existing.length);
+      files[op.payload.path] = existing.slice(0, idx) + op.payload.text + existing.slice(idx);
+      break;
+    }
+    case 'delete-text': {
+      const existing = files[op.payload.path] ?? '';
+      const idx = Math.min(Math.max(op.payload.index, 0), existing.length);
+      const end = Math.min(idx + op.payload.length, existing.length);
+      files[op.payload.path] = existing.slice(0, idx) + existing.slice(end);
+      break;
+    }
+    case 'replace-range': {
+      const existing = files[op.payload.path] ?? '';
+      const idx = Math.min(Math.max(op.payload.index, 0), existing.length);
+      const end = Math.min(idx + op.payload.length, existing.length);
+      files[op.payload.path] = existing.slice(0, idx) + op.payload.text + existing.slice(end);
+      break;
+    }
+    case 'add-asset':
+    case 'delete-asset':
+      // Asset operations do not modify note files; handled separately
       break;
   }
 

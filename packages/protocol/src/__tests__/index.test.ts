@@ -1,8 +1,10 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import {
+  AddAssetOperation,
   CreateNoteOperation,
   CreateNotePayload,
+  DeleteAssetOperation,
   DeleteNoteOperation,
   DeleteTextOperation,
   DeleteTextPayload,
@@ -36,7 +38,7 @@ describe('protocol', () => {
 
   it('operation type is a closed union of supported kinds', () => {
     expectTypeOf<Operation['type']>().toEqualTypeOf<
-      'create-note' | 'delete-note' | 'rename-note' | 'replace-content' | 'insert-text' | 'delete-text' | 'replace-range'
+      'create-note' | 'delete-note' | 'rename-note' | 'replace-content' | 'insert-text' | 'delete-text' | 'replace-range' | 'add-asset' | 'delete-asset'
     >();
   });
 
@@ -53,6 +55,8 @@ describe('protocol', () => {
       | InsertTextOperation['payload']
       | DeleteTextOperation['payload']
       | ReplaceRangeOperation['payload']
+      | AddAssetOperation['payload']
+      | DeleteAssetOperation['payload']
     >();
   });
 

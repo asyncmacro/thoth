@@ -87,39 +87,39 @@ Phase 3 — Attachment Synchronization
 
 Asset Support
 
-Images
+[x] Images
 
-PDFs
+[x] PDFs
 
-Audio
+[x] Audio
 
-Videos
+[x] Videos
 
-Arbitrary files
+[x] Arbitrary files
 
 
 Storage
 
-Asset metadata
+[x] Asset metadata
 
-Upload protocol
+[x] Upload protocol
 
-Download protocol
+[x] Download protocol
 
-Hash verification
+[x] Hash verification
 
-Duplicate detection
+[ ] Duplicate detection
 
 
 Synchronization
 
-Asset operations
+[x] Asset operations
 
-Missing asset detection
+[x] Missing asset detection
 
-Lazy downloads
+[x] Lazy downloads
 
-Background asset synchronization
+[ ] Background asset synchronization
 
 
 

@@ -88,6 +88,19 @@ const replaceRangePayloadSchema = object({
   text: string(),
 });
 
+const addAssetPayloadSchema = object({
+  path: string({ minLength: 1 }),
+  assetId: string({ minLength: 1, maxLength: 200 }),
+  hash: string({ minLength: 1 }),
+  size: integer({ min: 0 }),
+  mimeType: optional(string({ maxLength: 200 })),
+});
+
+const deleteAssetPayloadSchema = object({
+  path: string({ minLength: 1 }),
+  assetId: string({ minLength: 1, maxLength: 200 }),
+});
+
 const payloadSchemas: Record<OperationType, Validator<unknown>> = {
   'create-note': createNotePayloadSchema,
   'delete-note': deleteNotePayloadSchema,
@@ -96,11 +109,13 @@ const payloadSchemas: Record<OperationType, Validator<unknown>> = {
   'insert-text': insertTextPayloadSchema,
   'delete-text': deleteTextPayloadSchema,
   'replace-range': replaceRangePayloadSchema,
+  'add-asset': addAssetPayloadSchema,
+  'delete-asset': deleteAssetPayloadSchema,
 };
 
 const operationBaseSchema = object({
   id: string({ minLength: 1, maxLength: 200 }),
-  type: oneOf('create-note', 'delete-note', 'rename-note', 'replace-content', 'insert-text', 'delete-text', 'replace-range'),
+  type: oneOf('create-note', 'delete-note', 'rename-note', 'replace-content', 'insert-text', 'delete-text', 'replace-range', 'add-asset', 'delete-asset'),
   deviceId: string({ minLength: 1, maxLength: 200 }),
   revision: integer({ min: 0 }),
   parentRevision: optional(integer({ min: 0 })),

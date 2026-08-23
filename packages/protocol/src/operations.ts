@@ -9,7 +9,7 @@
 import type { DeviceId, OperationId, OperationMetadata, Revision } from './common.js';
 
 export type OperationType =
-  'create-note' | 'delete-note' | 'rename-note' | 'replace-content' | 'insert-text' | 'delete-text' | 'replace-range';
+  'create-note' | 'delete-note' | 'rename-note' | 'replace-content' | 'insert-text' | 'delete-text' | 'replace-range' | 'add-asset' | 'delete-asset';
 
 export interface CreateNotePayload {
   /** Vault-relative note path, e.g. "notes/hello". */
@@ -54,6 +54,19 @@ export interface ReplaceRangePayload {
   /** Number of characters to replace. */
   length: number;
   text: string;
+}
+
+export interface AddAssetPayload {
+  path: string;
+  assetId: string;
+  hash: string;
+  size: number;
+  mimeType?: string;
+}
+
+export interface DeleteAssetPayload {
+  path: string;
+  assetId: string;
 }
 
 export interface CreateNoteOperation {
@@ -134,6 +147,28 @@ export interface ReplaceRangeOperation {
   payload: ReplaceRangePayload;
 }
 
+export interface AddAssetOperation {
+  id: OperationId;
+  type: 'add-asset';
+  deviceId: DeviceId;
+  revision: Revision;
+  parentRevision?: Revision;
+  timestamp?: number;
+  metadata?: OperationMetadata;
+  payload: AddAssetPayload;
+}
+
+export interface DeleteAssetOperation {
+  id: OperationId;
+  type: 'delete-asset';
+  deviceId: DeviceId;
+  revision: Revision;
+  parentRevision?: Revision;
+  timestamp?: number;
+  metadata?: OperationMetadata;
+  payload: DeleteAssetPayload;
+}
+
 export type Operation =
   | CreateNoteOperation
   | DeleteNoteOperation
@@ -141,4 +176,6 @@ export type Operation =
   | ReplaceContentOperation
   | InsertTextOperation
   | DeleteTextOperation
-  | ReplaceRangeOperation;
+  | ReplaceRangeOperation
+  | AddAssetOperation
+  | DeleteAssetOperation;
