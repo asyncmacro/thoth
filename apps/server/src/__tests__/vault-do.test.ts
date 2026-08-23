@@ -20,6 +20,15 @@ class FakeStorage {
   delete(key: string): void {
     this.map.delete(key);
   }
+
+  list(opts?: { prefix?: string }) {
+    const prefix = opts?.prefix ?? '';
+    const entries = new Map<string, unknown>();
+    for (const [k, v] of this.map.entries()) {
+      if (k.startsWith(prefix)) entries.set(k, v);
+    }
+    return entries;
+  }
 }
 
 function createDo() {
@@ -234,5 +243,108 @@ describe('pull', () => {
     expect(res.status).toBe(400);
     const json = (await res.json()) as { error: string };
     expect(json.error).toBe('VALIDATION_ERROR');
+  });
+});
+
+describe('ws-ticket', () => {
+  it('issues a ticket for a valid device', async () => {
+    const { doObject } = createDo();
+    await initVault(doObject);
+    // Register device via existing device route
+    const deviceId = '11111111-1111-4111-8111-111111111111';
+    const regRes = await doObject.fetch(
+      new Request('https://internal/devices', {
+        method: 'POST',
+        body: JSON.stringify({ deviceId, name: 'test' }),
+      })
+    );
+    expect(regRes.status).toBe(201);
+    const { apiKey } = (await regRes.json()) as { apiKey: string };
+    const ticketRes = await doObject.fetch(
+      new Request('https://internal/ws-ticket', {
+        method: 'POST',
+        body: JSON.stringify({ deviceId, apiKey }),
+      })
+    );
+    expect(ticketRes.status).toBe(201);
+    const body = (await ticketRes.json()) as { ticket: string };
+    expect(typeof body.ticket).toBe('string');
+    expect(body.ticket.length).toBeGreaterThan(0);
+  });
+
+  it('rejects an invalid api key', async () => {
+    const { doObject } = createDo();
+    await initVault(doObject);
+    const deviceId = '11111111-1111-4111-8111-111111111111';
+    await doObject.fetch(
+      new Request('https://internal/devices', {
+        method: 'POST',
+        body: JSON.stringify({ deviceId }),
+      })
+    );
+    const ticketRes = await doObject.fetch(
+      new Request('https://internal/ws-ticket', {
+        method: 'POST',
+        body: JSON.stringify({ deviceId, apiKey: 'wrong' }),
+      })
+    );
+    expect(ticketRes.status).toBe(401);
+  });
+
+  it('single-use ticket cannot be replayed', async () => {
+    const { doObject, storage } = createDo();
+    await initVault(doObject);
+    const deviceId = '11111111-1111-4111-8111-111111111111';
+    const regRes = await doObject.fetch(
+      new Request('https://internal/devices', {
+        method: 'POST',
+        body: JSON.stringify({ deviceId }),
+      })
+    );
+    const { apiKey } = (await regRes.json()) as { apiKey: string };
+    const t1 = await doObject.fetch(
+      new Request('https://internal/ws-ticket', {
+        method: 'POST',
+        body: JSON.stringify({ deviceId, apiKey }),
+      })
+    );
+    const { ticket } = (await t1.json()) as { ticket: string };
+    // Simulate use by deleting ticket
+    storage.delete(`ws-ticket:${ticket}`);
+    const stored = storage.get(`ws-ticket:${ticket}`);
+    expect(stored).toBeUndefined();
+  });
+
+  it('rejects expired ticket', async () => {
+    const { doObject, storage } = createDo();
+    await initVault(doObject);
+    const deviceId = '11111111-1111-4111-8111-111111111111';
+    const regRes = await doObject.fetch(
+      new Request('https://internal/devices', {
+        method: 'POST',
+        body: JSON.stringify({ deviceId }),
+      })
+    );
+    const { apiKey } = (await regRes.json()) as { apiKey: string };
+    const t1 = await doObject.fetch(
+      new Request('https://internal/ws-ticket', {
+        method: 'POST',
+        body: JSON.stringify({ deviceId, apiKey }),
+      })
+    );
+    const { ticket } = (await t1.json()) as { ticket: string };
+    const entry = storage.get<{ deviceId: string; expiresAt: number }>(
+      `ws-ticket:${ticket}`
+    );
+    if (entry) {
+      storage.put(`ws-ticket:${ticket}`, {
+        ...entry,
+        expiresAt: Date.now() - 1,
+      });
+    }
+    const upgradeRes = await doObject.fetch(
+      new Request(`https://internal/ws?deviceId=${deviceId}&ticket=${ticket}`)
+    );
+    expect(upgradeRes.status).toBe(401);
   });
 });

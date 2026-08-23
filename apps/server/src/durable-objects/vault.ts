@@ -223,6 +223,11 @@ export class VaultDurableObject {
       return validationErrorResponse(parsed.issues);
     }
 
+    // Feature flag for device auth on mutating endpoints – disabled by default
+    const ENFORCE_DEVICE_AUTH = false;
+    if (ENFORCE_DEVICE_AUTH) {
+      // TODO: validate Authorization header against devices
+    }
     const { baseRevision, operations } = parsed.value;
     const { metadata, log, snapshot } = data;
 
@@ -272,7 +277,9 @@ export class VaultDurableObject {
       snapshot: applied.state,
     });
     // Notify connected clients about the new revision
-    await this.broadcastVaultChanged(applied.state.revision);
+    const pushingDeviceId = operations[0]?.deviceId;
+    await this.broadcastVaultChanged(applied.state.revision, pushingDeviceId);
+
     return json({ revision: applied.state.revision });
   }
 
@@ -314,6 +321,15 @@ export class VaultDurableObject {
     if (hash !== device.apiKeyHash) {
       return json({ error: 'UNAUTHORIZED', message: 'invalid api key' }, 401);
     }
+    // Prune expired tickets to avoid unbounded growth
+    const list = await this.state.storage.list({ prefix: 'ws-ticket:' });
+    const now = Date.now();
+    for (const [key, value] of list.entries()) {
+      const entry = value as { expiresAt: number };
+      if (entry.expiresAt < now) {
+        await this.state.storage.delete(key);
+      }
+    }
     const ticket = crypto.randomUUID();
     const expiresAt = Date.now() + 60_000;
     await this.state.storage.put(`ws-ticket:${ticket}`, {
@@ -323,11 +339,20 @@ export class VaultDurableObject {
     return json({ ticket, expiresAt }, 201);
   }
 
-  private async broadcastVaultChanged(revision: number): Promise<void> {
+  private async broadcastVaultChanged(
+    revision: number,
+    pushingDeviceId?: string
+  ): Promise<void> {
     try {
       const message = JSON.stringify({ type: 'vault-changed', revision });
-      const sockets = (this.state as any).getWebSockets?.() ?? [];
-      for (const ws of sockets) {
+      const allSockets = (this.state as any).getWebSockets?.() ?? [];
+      const senderSockets = pushingDeviceId
+        ? new Set((this.state as any).getWebSockets?.(pushingDeviceId) ?? [])
+        : new Set();
+      for (const ws of allSockets) {
+        if (senderSockets.has(ws)) {
+          continue;
+        }
         try {
           ws.send(message);
         } catch {
