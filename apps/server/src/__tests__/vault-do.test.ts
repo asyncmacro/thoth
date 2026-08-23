@@ -149,16 +149,23 @@ describe('push', () => {
   it('rejects operations that cannot apply to the server state', async () => {
     const { doObject } = createDo();
     await initVault(doObject);
-    await push(doObject, 0, [createNote(0, 'a.md', 'x')]);
 
-    const res = await push(doObject, 1, [createNote(1, 'a.md', 'dup')]);
+    const res = await push(doObject, 0, [
+      {
+        id: 'op-del-0',
+        type: 'delete-note',
+        deviceId: 'dev-1',
+        revision: 0,
+        payload: { path: 'missing.md' },
+      },
+    ]);
     expect(res.status).toBe(409);
     const json = (await res.json()) as {
       error: string;
       details: { reason: string };
     };
     expect(json.error).toBe('CONFLICT');
-    expect(json.details.reason).toBe('NOTE_EXISTS');
+    expect(json.details.reason).toBe('NOTE_NOT_FOUND');
   });
 
   it('rejects malformed request bodies with validation errors', async () => {

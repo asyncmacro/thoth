@@ -54,6 +54,9 @@ function json(data: unknown, status = 200): Response {
 
 export class VaultDurableObject {
   private state: DurableObjectState;
+  private connections = new Map<WebSocket, { deviceId: string; lastActive: number }>();
+  private readonly IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+  private readonly ALARM_INTERVAL_MS = 60 * 1000;
 
   constructor(state: DurableObjectState) {
     this.state = state;
@@ -398,6 +401,11 @@ export class VaultDurableObject {
     const [client, server] = Object.values(pair) as [WebSocket, WebSocket];
     // Tag socket with device id for future filtering/broadcast
     (this.state as any).acceptWebSocket(server, [deviceId]);
+    // Track connection for lifecycle & idle timeout
+    this.connections.set(server, { deviceId, lastActive: Date.now() });
+    // Schedule idle check alarm
+    await this.state.storage.put('lastAlarm', Date.now());
+    await this.state.storage.setAlarm(Date.now() + this.ALARM_INTERVAL_MS);
     // Optional auto-response for ping/pong without waking the DO
     (this.state as any).setWebSocketAutoResponse?.({
       request: '{"type":"ping"}',
@@ -410,6 +418,10 @@ export class VaultDurableObject {
     ws: WebSocket,
     message: string | ArrayBuffer
   ): Promise<void> {
+    const entry = this.connections.get(ws);
+    if (entry) {
+      entry.lastActive = Date.now();
+    }
     try {
       const text =
         typeof message === 'string'
@@ -438,7 +450,7 @@ export class VaultDurableObject {
     reason: string,
     wasClean: boolean
   ): Promise<void> {
-    // No cleanup required; hibernation API manages socket lifecycle
+    this.connections.delete(ws);
   }
 
   private async load(): Promise<StoredVault> {
@@ -451,6 +463,19 @@ export class VaultDurableObject {
       log: createOperationLog(),
       snapshot: createVaultState(),
     };
+  }
+
+  async alarm(): Promise<void> {
+    const now = Date.now();
+    for (const [ws, meta] of this.connections.entries()) {
+      if (now - meta.lastActive > this.IDLE_TIMEOUT_MS) {
+        try {
+          ws.close(1000, 'idle timeout');
+        } catch {}
+        this.connections.delete(ws);
+      }
+    }
+    await this.state.storage.setAlarm(now + this.ALARM_INTERVAL_MS);
   }
 
   private async save(data: StoredVault): Promise<void> {

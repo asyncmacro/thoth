@@ -49,35 +49,35 @@ Phase 2 — Real-Time Sync
 
 Connections
 
-Durable Object WebSocket support
+[x] Durable Object WebSocket support
 
-Connection lifecycle management
+[x] Connection lifecycle management
 
-Heartbeats
+[x] Heartbeats
 
-Automatic reconnection
+[x] Automatic reconnection
 
-Idle timeout handling
+[x] Idle timeout handling
 
 
 Events
 
-Push new operations instantly
+[x] Push new operations instantly
 
-Remote device notifications
+[x] Remote device notifications
 
-Immediate revision updates
+[x] Immediate revision updates
 
-Live vault state
+[x] Live vault state
 
 
 Client
 
-Automatic reconnect
+[x] Automatic reconnect
 
-Offline detection
+[x] Offline detection
 
-Seamless transition between polling and real-time
+[x] Seamless transition between polling and real-time
 
 
 
