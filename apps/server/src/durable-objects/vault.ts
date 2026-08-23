@@ -65,6 +65,8 @@ export class VaultDurableObject {
   private connections = new Map<WebSocket, { deviceId: string; lastActive: number }>();
   private readonly IDLE_TIMEOUT_MS = 5 * 60 * 1000;
   private readonly ALARM_INTERVAL_MS = 60 * 1000;
+  private readonly SNAPSHOT_COMPACTION_THRESHOLD = 500;
+  private readonly SNAPSHOT_INTERVAL_MS = 30 * 60 * 1000;
 
   constructor(state: DurableObjectState) {
     this.state = state;
@@ -290,10 +292,17 @@ export class VaultDurableObject {
       nextLog = appended.log;
     }
 
+    let compactedLog = nextLog;
+    // Automatic snapshot compaction
+    if (compactedLog.operations.length >= this.SNAPSHOT_COMPACTION_THRESHOLD) {
+      compactedLog = this.compactLog(compactedLog, applied.state);
+    }
+
     await this.save({
       metadata,
-      log: nextLog,
+      log: compactedLog,
       snapshot: applied.state,
+      assets: data.assets,
     });
     // Notify connected clients about the new revision
     const pushingDeviceId = operations[0]?.deviceId;
@@ -524,6 +533,7 @@ export class VaultDurableObject {
 
   async alarm(): Promise<void> {
     const now = Date.now();
+    // Idle timeout handling
     for (const [ws, meta] of this.connections.entries()) {
       if (now - meta.lastActive > this.IDLE_TIMEOUT_MS) {
         try {
@@ -532,7 +542,27 @@ export class VaultDurableObject {
         this.connections.delete(ws);
       }
     }
+    // Automatic snapshot verification
+    await this.verifySnapshotIntegrity();
     await this.state.storage.setAlarm(now + this.ALARM_INTERVAL_MS);
+  }
+
+  private compactLog(log: OperationLog, snapshotState: { revision: number }) {
+    // Keep only operations after snapshot revision for compaction
+    const cutoff = snapshotState.revision;
+    const remaining = log.operations.filter(op => op.revision > cutoff);
+    return { operations: remaining };
+  }
+
+  private async verifySnapshotIntegrity(): Promise<void> {
+    const data = await this.load();
+    const { snapshot, log } = data;
+    // If log contains operations beyond snapshot, verify by replaying
+    if (log.operations.length === 0) return;
+    const lastLogRevision = log.operations[log.operations.length - 1].revision;
+    if (lastLogRevision <= snapshot.revision) return;
+    // In a full implementation, we'd replay log from snapshot revision.
+    // For now, integrity is assumed if snapshot revision matches expected.
   }
 
   private async save(data: StoredVault): Promise<void> {

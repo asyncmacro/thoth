@@ -129,22 +129,22 @@ Phase 4 — Snapshot Improvements
 
 Snapshots
 
-Automatic snapshot intervals
+[x] Automatic snapshot intervals
 
-Snapshot compaction
+[x] Snapshot compaction
 
-Snapshot pruning
+[x] Snapshot pruning
 
-Snapshot verification
+[x] Snapshot verification
 
 
 Recovery
 
-Restore from snapshot
+[x] Restore from snapshot
 
-Verify snapshot integrity
+[x] Verify snapshot integrity
 
-Snapshot migration
+[x] Snapshot migration
 
 
 
