@@ -1,12 +1,55 @@
 export type ConnectionResult =
   { ok: true; message: string } | { ok: false; message: string };
 
+export type RegisterResult =
+  | { ok: true; deviceId: string; apiKey: string }
+  | { ok: false; message: string };
+
+export type RotateResult =
+  | { ok: true; deviceId: string; apiKey: string }
+  | { ok: false; message: string };
+
+export type DeviceSummary = { id: string; createdAt: number; name?: string };
+
+export type ListDevicesResult =
+  { ok: true; devices: DeviceSummary[] } | { ok: false; message: string };
+
+export type DeleteDeviceResult = { ok: true } | { ok: false; message: string };
+
+export type CreateVaultResult =
+  { ok: true; vaultId: string } | { ok: false; message: string };
+
 function baseUrl(serverUrl: string): string {
   return serverUrl.replace(/\/+$/, '');
 }
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+/** Creates a vault on the server. */
+export async function createVault(
+  serverUrl: string
+): Promise<CreateVaultResult> {
+  try {
+    const res = await fetch(`${baseUrl(serverUrl)}/vaults`, { method: 'POST' });
+    if (!res.ok) {
+      return {
+        ok: false,
+        message: `Create vault failed with status ${res.status}`,
+      };
+    }
+    const body = (await res.json()) as { id: string };
+    if (!body.id) {
+      return { ok: false, message: 'Create vault response missing id' };
+    }
+    return { ok: true, vaultId: body.id };
+  } catch (error) {
+    return {
+      ok: false,
+      message: `Create vault failed: ${errorMessage(error)}`,
+    };
+  }
 }
 
 /** Pings the server health endpoint. */
@@ -33,6 +76,43 @@ export async function checkHealth(
     return {
       ok: false,
       message: `Health check failed: ${errorMessage(error)}`,
+    };
+  }
+}
+
+/** Registers a device with the server. */
+export async function registerDevice(params: {
+  serverUrl: string;
+  vaultId: string;
+  deviceId: string;
+  name: string;
+}): Promise<RegisterResult> {
+  try {
+    const res = await fetch(
+      `${baseUrl(params.serverUrl)}/vaults/${encodeURIComponent(params.vaultId)}/devices`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId: params.deviceId, name: params.name }),
+      }
+    );
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { message?: string };
+      return {
+        ok: false,
+        message:
+          body.message ?? `Registration failed with status ${res.status}`,
+      };
+    }
+    const body = (await res.json()) as { deviceId: string; apiKey: string };
+    if (!body.deviceId || !body.apiKey) {
+      return { ok: false, message: 'Registration response missing fields' };
+    }
+    return { ok: true, deviceId: body.deviceId, apiKey: body.apiKey };
+  } catch (error) {
+    return {
+      ok: false,
+      message: `Registration failed: ${errorMessage(error)}`,
     };
   }
 }
@@ -68,5 +148,92 @@ export async function testAuthentication(params: {
       ok: false,
       message: `Authentication failed: ${errorMessage(error)}`,
     };
+  }
+}
+
+/** Lists devices registered to a vault. */
+export async function listDevices(params: {
+  serverUrl: string;
+  vaultId: string;
+}): Promise<ListDevicesResult> {
+  try {
+    const res = await fetch(
+      `${baseUrl(params.serverUrl)}/vaults/${encodeURIComponent(params.vaultId)}/devices`
+    );
+    if (!res.ok) {
+      return {
+        ok: false,
+        message: `List devices failed with status ${res.status}`,
+      };
+    }
+    const body = (await res.json()) as { devices: DeviceSummary[] };
+    if (!Array.isArray(body.devices)) {
+      return { ok: false, message: 'List devices response malformed' };
+    }
+    return { ok: true, devices: body.devices };
+  } catch (error) {
+    return {
+      ok: false,
+      message: `List devices failed: ${errorMessage(error)}`,
+    };
+  }
+}
+
+/** Removes a device from a vault. */
+export async function removeDevice(params: {
+  serverUrl: string;
+  vaultId: string;
+  deviceId: string;
+}): Promise<DeleteDeviceResult> {
+  try {
+    const res = await fetch(
+      `${baseUrl(params.serverUrl)}/vaults/${encodeURIComponent(params.vaultId)}/devices/${encodeURIComponent(params.deviceId)}`,
+      {
+        method: 'DELETE',
+      }
+    );
+    if (!res.ok && res.status !== 204) {
+      return {
+        ok: false,
+        message: `Remove device failed with status ${res.status}`,
+      };
+    }
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      message: `Remove device failed: ${errorMessage(error)}`,
+    };
+  }
+}
+
+/** Rotates a device API key. */
+export async function rotateApiKey(params: {
+  serverUrl: string;
+  vaultId: string;
+  deviceId: string;
+}): Promise<RotateResult> {
+  try {
+    const res = await fetch(
+      `${baseUrl(params.serverUrl)}/vaults/${encodeURIComponent(params.vaultId)}/devices/${encodeURIComponent(params.deviceId)}/rotate`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { message?: string };
+      return {
+        ok: false,
+        message: body.message ?? `Rotate failed with status ${res.status}`,
+      };
+    }
+    const body = (await res.json()) as { deviceId: string; apiKey: string };
+    if (!body.deviceId || !body.apiKey) {
+      return { ok: false, message: 'Rotate response missing fields' };
+    }
+    return { ok: true, deviceId: body.deviceId, apiKey: body.apiKey };
+  } catch (error) {
+    return { ok: false, message: `Rotate failed: ${errorMessage(error)}` };
   }
 }

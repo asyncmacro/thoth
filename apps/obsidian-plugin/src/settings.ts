@@ -3,6 +3,7 @@ export interface ThothSettings {
   vaultId: string;
   deviceId: string;
   apiKey: string;
+  deviceName: string;
 }
 
 export const DEFAULT_SETTINGS: Readonly<ThothSettings> = {
@@ -10,6 +11,7 @@ export const DEFAULT_SETTINGS: Readonly<ThothSettings> = {
   vaultId: '',
   deviceId: '',
   apiKey: '',
+  deviceName: '',
 };
 
 function asString(value: unknown, fallback: string): string {
@@ -32,6 +34,7 @@ export function parseSettings(value: unknown): ThothSettings {
     vaultId: asString(record.vaultId, DEFAULT_SETTINGS.vaultId),
     deviceId: asString(record.deviceId, DEFAULT_SETTINGS.deviceId),
     apiKey: asString(record.apiKey, DEFAULT_SETTINGS.apiKey),
+    deviceName: asString(record.deviceName, DEFAULT_SETTINGS.deviceName),
   };
 }
 

@@ -13,6 +13,8 @@ export interface CreateVaultRequest {
 }
 
 export interface RegisterDeviceRequest {
+  /** Optional client-provided device identifier. If omitted the server generates one. */
+  deviceId?: string;
   /** Optional human-readable device name (e.g. "Laptop"). */
   name?: string;
 }

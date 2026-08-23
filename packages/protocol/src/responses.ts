@@ -20,6 +20,7 @@ export interface VaultMetadataResponse {
 export interface DeviceSummary {
   id: DeviceId;
   createdAt: number;
+  name?: string;
 }
 
 export interface DeviceListResponse {

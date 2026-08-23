@@ -1,6 +1,14 @@
 import { Notice, Plugin } from 'obsidian';
 
-import { checkHealth, testAuthentication } from './api.js';
+import {
+  checkHealth,
+  createVault,
+  listDevices,
+  registerDevice,
+  removeDevice,
+  rotateApiKey,
+  testAuthentication,
+} from './api.js';
 import {
   loadPluginData,
   savePluginData,
@@ -8,8 +16,13 @@ import {
 } from './persistence.js';
 import { OperationQueue } from './queue.js';
 import { attachVaultListener } from './vault-listener.js';
-import { DEFAULT_SETTINGS, type ThothSettings } from './settings.js';
+import {
+  DEFAULT_SETTINGS,
+  type ThothSettings,
+  withSetting,
+} from './settings.js';
 import { ThothSettingTab } from './settings-tab.js';
+import { uuidv4 } from './uuid.js';
 import {
   uploadOperations,
   acknowledgeOperations,
@@ -29,6 +42,7 @@ export class ThothPlugin extends Plugin {
   settings: ThothSettings = { ...DEFAULT_SETTINGS };
   readonly queue = new OperationQueue((queue) => this.saveQueue(queue));
   serverRevision = 0;
+  deviceList: Array<{ id: string; createdAt: number; name?: string }> = [];
   private detachVaultListener?: () => void;
   private scheduler?: RetryScheduler;
   private isSyncing = false;
@@ -144,6 +158,111 @@ export class ThothPlugin extends Plugin {
       apiKey: this.settings.apiKey,
     });
     new Notice(`Thoth: ${auth.message}`);
+  }
+
+  async registerDevice(): Promise<void> {
+    const { serverUrl, vaultId, deviceName } = this.settings;
+    if (!serverUrl || !vaultId) {
+      new Notice('Thoth: server URL and vault ID are required');
+      return;
+    }
+    const name = deviceName.trim() || 'Obsidian Device';
+    const deviceId = uuidv4();
+    const res = await registerDevice({ serverUrl, vaultId, deviceId, name });
+    if (!res.ok) {
+      new Notice(`Thoth: registration failed – ${res.message}`);
+      return;
+    }
+    this.settings = withSetting(this.settings, 'deviceId', res.deviceId);
+    this.settings = withSetting(this.settings, 'apiKey', res.apiKey);
+    this.settings = withSetting(this.settings, 'deviceName', name);
+    await this.saveSettings();
+    await this.refreshDeviceList();
+    new Notice('Thoth: device registered');
+  }
+
+  async rotateApiKey(): Promise<void> {
+    const { serverUrl, vaultId, deviceId } = this.settings;
+    if (!serverUrl || !vaultId || !deviceId) {
+      new Notice('Thoth: device not registered');
+      return;
+    }
+    const res = await rotateApiKey({ serverUrl, vaultId, deviceId });
+    if (!res.ok) {
+      new Notice(`Thoth: rotate failed – ${res.message}`);
+      return;
+    }
+    this.settings = withSetting(this.settings, 'apiKey', res.apiKey);
+    await this.saveSettings();
+    new Notice('Thoth: API key rotated');
+  }
+
+  async removeDevice(): Promise<void> {
+    const { serverUrl, vaultId, deviceId } = this.settings;
+    if (!serverUrl || !vaultId || !deviceId) {
+      new Notice('Thoth: device not registered');
+      return;
+    }
+    const res = await removeDevice({ serverUrl, vaultId, deviceId });
+    if (!res.ok) {
+      new Notice(`Thoth: remove failed – ${res.message}`);
+      return;
+    }
+    this.settings = { ...this.settings, deviceId: '', apiKey: '' };
+    await this.saveSettings();
+    await this.refreshDeviceList();
+    new Notice('Thoth: device removed and local credentials cleared');
+  }
+
+  async removeDeviceById(deviceId: string): Promise<void> {
+    const { serverUrl, vaultId } = this.settings;
+    if (!serverUrl || !vaultId) {
+      new Notice('Thoth: server URL and vault ID are required');
+      return;
+    }
+    const res = await removeDevice({ serverUrl, vaultId, deviceId });
+    if (!res.ok) {
+      new Notice(`Thoth: remove failed – ${res.message}`);
+      return;
+    }
+    if (deviceId === this.settings.deviceId) {
+      this.settings = { ...this.settings, deviceId: '', apiKey: '' };
+      await this.saveSettings();
+      new Notice('Thoth: device removed and local credentials cleared');
+    } else {
+      new Notice('Thoth: device removed');
+    }
+    await this.refreshDeviceList();
+  }
+
+  async refreshDeviceList(): Promise<void> {
+    const { serverUrl, vaultId } = this.settings;
+    if (!serverUrl || !vaultId) {
+      this.deviceList = [];
+      return;
+    }
+    const res = await listDevices({ serverUrl, vaultId });
+    if (res.ok) {
+      this.deviceList = res.devices;
+    } else {
+      this.deviceList = [];
+    }
+  }
+
+  async createVault(): Promise<void> {
+    const { serverUrl } = this.settings;
+    if (!serverUrl) {
+      new Notice('Thoth: server URL is required');
+      return;
+    }
+    const res = await createVault(serverUrl);
+    if (!res.ok) {
+      new Notice(`Thoth: create vault failed – ${res.message}`);
+      return;
+    }
+    this.settings = withSetting(this.settings, 'vaultId', res.vaultId);
+    await this.saveSettings();
+    new Notice(`Thoth: vault created ${res.vaultId}`);
   }
 
   async manualSync(): Promise<void> {

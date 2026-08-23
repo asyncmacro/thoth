@@ -102,7 +102,13 @@ describe('loadPluginData', () => {
   it('round-trips a persisted blob', async () => {
     const storage = new MemoryPersistence();
     const expected: PluginData = {
-      settings: { serverUrl: 'u', vaultId: 'v', deviceId: 'd', apiKey: 'k' },
+      settings: {
+        serverUrl: 'u',
+        vaultId: 'v',
+        deviceId: 'd',
+        apiKey: 'k',
+        deviceName: '',
+      },
       queue: [validOperation(1)],
       serverRevision: 42,
     };

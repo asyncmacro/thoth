@@ -8,11 +8,16 @@ import {
   type OperationLog,
   type VaultState,
 } from '@thoth/operations';
-import { pullOperationsSchema, pushOperationsSchema } from '@thoth/validation';
+import {
+  pullOperationsSchema,
+  pushOperationsSchema,
+  registerDeviceSchema,
+} from '@thoth/validation';
 
 interface Device {
   apiKeyHash: string;
   createdAt: number;
+  name?: string;
 }
 
 interface VaultMetadata {
@@ -102,17 +107,53 @@ export class VaultDurableObject {
 
     // Device management
     if (url.pathname === '/devices' && method === 'POST') {
-      const deviceId = crypto.randomUUID();
+      const body = await request.json().catch(() => null);
+      const parsed = registerDeviceSchema(body);
+      if (!parsed.ok) {
+        return validationErrorResponse(parsed.issues);
+      }
+      const { deviceId: requestedId, name } = parsed.value;
+      const MAX_DEVICES = 20;
+      if (Object.keys(data.metadata.devices).length >= MAX_DEVICES) {
+        return json(
+          {
+            error: 'DEVICE_LIMIT_REACHED',
+            message: `maximum of ${MAX_DEVICES} devices per vault`,
+          },
+          409
+        );
+      }
+      const deviceId =
+        requestedId && !data.metadata.devices[requestedId]
+          ? requestedId
+          : crypto.randomUUID();
+      if (data.metadata.devices[deviceId]) {
+        return json(
+          {
+            error: 'DEVICE_ALREADY_REGISTERED',
+            message: 'device id already in use',
+          },
+          409
+        );
+      }
       const apiKey = crypto.randomUUID();
       const apiKeyHash = await this.hash(apiKey);
-      data.metadata.devices[deviceId] = { apiKeyHash, createdAt: Date.now() };
+      data.metadata.devices[deviceId] = {
+        apiKeyHash,
+        createdAt: Date.now(),
+        name,
+      };
       await this.save(data);
       return json({ deviceId, apiKey }, 201);
     }
 
     if (url.pathname === '/devices' && method === 'GET') {
       const devices = Object.entries(data.metadata.devices).map(
-        ([id, device]) => ({ id, createdAt: device.createdAt })
+        ([id, device]) => ({
+          id,
+          createdAt: device.createdAt,
+          name: device.name,
+        })
       );
       return json({ devices });
     }
