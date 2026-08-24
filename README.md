@@ -38,10 +38,17 @@ packages/
 pnpm install
 pnpm typecheck
 pnpm lint
+pnpm format
 pnpm test
 ```
 
 See `TODO.md` for the v0.1 roadmap.
+
+## Documentation
+
+- Architecture overview: `docs/architecture.md`
+- Protocol spec: `docs/protocol.md`
+- API reference generated from TypeScript types in `packages/protocol`
 
 ## License
 

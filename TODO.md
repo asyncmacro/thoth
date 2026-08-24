@@ -318,24 +318,24 @@ Phase 10 — Developer Experience
 
 Documentation
 
-Protocol specification
+[x] Protocol specification
 
-Synchronization flow
+[x] Synchronization flow
 
-Architecture diagrams
+[x] Architecture diagrams
 
-Deployment guide
+[x] Deployment guide
 
 
 Tooling
 
-Local development improvements
+[x] Local development improvements
 
-Better logging
+[x] Better logging
 
-Debug mode
+[x] Debug mode
 
-Replay operation logs
+[x] Replay operation logs
 
 
 Testing
