@@ -340,15 +340,15 @@ Tooling
 
 Testing
 
-Larger integration suite
+[x] Larger integration suite
 
-Multi-device tests
+[x] Multi-device tests
 
-Long-running sync tests
+[x] Long-running sync tests
 
-Stress testing
+[x] Stress testing
 
-Performance benchmarks
+[x] Performance benchmarks
 
 
 
