@@ -286,29 +286,29 @@ Phase 9 — Security
 
 Authentication
 
-API key rotation
+[x] API key rotation
 
-Device revocation
+[x] Device revocation
 
-Session validation
+[x] Session validation
 
 
 Validation
 
-Request hardening
+[x] Request hardening
 
-Better input validation
+[x] Better input validation
 
-Abuse protection
+[x] Abuse protection
 
 
 Server
 
-Request size limits
+[x] Request size limits
 
-Operation count limits
+[x] Operation count limits
 
-Rate limiting (lightweight)
+[x] Rate limiting (lightweight)
 
 
 

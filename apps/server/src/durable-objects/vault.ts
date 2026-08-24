@@ -57,7 +57,12 @@ function validationErrorResponse(issues: ValidationIssue[]): Response {
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'DENY',
+      'Referrer-Policy': 'no-referrer',
+    },
   });
 }
 
@@ -77,6 +82,20 @@ export class VaultDurableObject {
   async fetch(request: Request) {
     const url = new URL(request.url);
     const method = request.method;
+    // Rate limiting: simple per-IP counter
+    const clientIp = request.headers.get('cf-connecting-ip') ?? 'unknown';
+    const rateKey = `rate:${clientIp}`;
+    const rate = await this.state.storage.get<{ count: number; ts: number }>(rateKey) ?? { count: 0, ts: Date.now() };
+    const now = Date.now();
+    if (now - rate.ts > 60_000) {
+      rate.count = 0;
+      rate.ts = now;
+    }
+    rate.count += 1;
+    await this.state.storage.put(rateKey, rate);
+    if (rate.count > 100) {
+      return new Response(JSON.stringify({ error: 'TOO_MANY_REQUESTS' }), { status: 429, headers: { 'Content-Type': 'application/json' } });
+    }
 
     let data = await this.load();
 
@@ -340,6 +359,8 @@ export class VaultDurableObject {
       snapshot: applied.state,
       assets: data.assets,
     });
+    // Audit logging
+    await this.audit('push', { revision: applied.state.revision, deviceId: operations[0]?.deviceId });
     // Notify connected clients about the new revision
     const pushingDeviceId = operations[0]?.deviceId;
     await this.broadcastVaultChanged(applied.state.revision, pushingDeviceId);
@@ -616,6 +637,16 @@ export class VaultDurableObject {
 
   private async save(data: StoredVault): Promise<void> {
     await this.state.storage.put('vault', data);
+  }
+
+  private async audit(action: string, details: Record<string, unknown>): Promise<void> {
+    const entry = { ts: Date.now(), action, details };
+    const key = 'audit';
+    const logs = (await this.state.storage.get<Array<typeof entry>>(key)) ?? [];
+    logs.push(entry);
+    // keep last 100 entries
+    if (logs.length > 100) logs.splice(0, logs.length - 100);
+    await this.state.storage.put(key, logs);
   }
 
   private async hash(input: string): Promise<string> {
