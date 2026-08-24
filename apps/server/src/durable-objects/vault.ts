@@ -114,6 +114,7 @@ export class VaultDurableObject {
           metadata: { id: body.id, devices: {} },
           log: createOperationLog(),
           snapshot: createVaultState(),
+          assets: {},
         };
         await this.save(data);
       }
