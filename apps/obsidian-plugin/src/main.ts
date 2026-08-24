@@ -321,21 +321,21 @@ export class ThothPlugin extends Plugin {
 
   async pauseSync(): Promise<void> {
     this.isPaused = true;
-    this.scheduler?.pause?.();
+    this.scheduler?.stop?.();
     new Notice('Thoth: synchronization paused');
     this.updateStatusBar();
   }
 
   async resumeSync(): Promise<void> {
     this.isPaused = false;
-    this.scheduler?.resume?.();
+    this.scheduler?.start?.();
     new Notice('Thoth: synchronization resumed');
     this.updateStatusBar();
   }
 
   async resetLocalCache(): Promise<void> {
     this.serverRevision = 0;
-    this.queue.clear();
+    this.queue.replaceAll([]);
     new Notice('Thoth: local cache reset');
     this.updateStatusBar();
   }
