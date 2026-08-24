@@ -219,37 +219,37 @@ Phase 7 — Plugin UX
 
 Settings
 
-Connection diagnostics
+[x] Connection diagnostics
 
-Test connection
+[x] Test connection
 
-Device information
+[x] Device information
 
-Sync statistics
+[x] Sync statistics
 
 
 Commands
 
-Sync now
+[x] Sync now
 
-Pause synchronization
+[x] Pause synchronization
 
-Resume synchronization
+[x] Resume synchronization
 
-Reset local cache
+[x] Reset local cache
 
 
 Status
 
-Status bar indicator
+[x] Status bar indicator
 
-Current sync state
+[x] Current sync state
 
-Queue size
+[x] Queue size
 
-Last synchronization
+[x] Last synchronization
 
-Active server
+[x] Active server
 
 
 

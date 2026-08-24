@@ -47,6 +47,7 @@ export class ThothPlugin extends Plugin {
   private detachVaultListener?: () => void;
   private scheduler?: RetryScheduler;
   private isSyncing = false;
+  private isPaused = false;
   private statusBarEl?: HTMLElement;
   private realtimeClient?: { close(): void };
   private realtimeStatus: RealtimeStatus = 'closed';
@@ -69,6 +70,30 @@ export class ThothPlugin extends Plugin {
       name: 'Sync now',
       callback: () => {
         void this.manualSync();
+      },
+    });
+
+    this.addCommand({
+      id: 'thoth-pause-sync',
+      name: 'Pause synchronization',
+      callback: () => {
+        void this.pauseSync();
+      },
+    });
+
+    this.addCommand({
+      id: 'thoth-resume-sync',
+      name: 'Resume synchronization',
+      callback: () => {
+        void this.resumeSync();
+      },
+    });
+
+    this.addCommand({
+      id: 'thoth-reset-cache',
+      name: 'Reset local cache',
+      callback: () => {
+        void this.resetLocalCache();
       },
     });
 
@@ -294,6 +319,27 @@ export class ThothPlugin extends Plugin {
     new Notice('Thoth: sync triggered');
   }
 
+  async pauseSync(): Promise<void> {
+    this.isPaused = true;
+    this.scheduler?.pause?.();
+    new Notice('Thoth: synchronization paused');
+    this.updateStatusBar();
+  }
+
+  async resumeSync(): Promise<void> {
+    this.isPaused = false;
+    this.scheduler?.resume?.();
+    new Notice('Thoth: synchronization resumed');
+    this.updateStatusBar();
+  }
+
+  async resetLocalCache(): Promise<void> {
+    this.serverRevision = 0;
+    this.queue.clear();
+    new Notice('Thoth: local cache reset');
+    this.updateStatusBar();
+  }
+
   private updateStatusBar(): void {
     if (!this.statusBarEl) return;
     const { serverUrl, vaultId, deviceId, apiKey } = this.settings;
@@ -301,6 +347,11 @@ export class ThothPlugin extends Plugin {
     if (!configured) {
       this.statusBarEl.textContent = 'Thoth: not configured';
       this.statusBarEl.title = 'Thoth is not configured';
+      return;
+    }
+    if (this.isPaused) {
+      this.statusBarEl.textContent = 'Thoth: paused';
+      this.statusBarEl.title = 'Thoth synchronization is paused';
       return;
     }
     if (this.isSyncing) {
@@ -355,6 +406,10 @@ export class ThothPlugin extends Plugin {
   }
 
   private async performSync(): Promise<void> {
+    if (this.isPaused) {
+      console.debug('Thoth: sync paused, skipping');
+      return;
+    }
     if (this.isSyncing) {
       console.debug('Thoth: sync already in progress, skipping');
       return;
