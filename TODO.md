@@ -381,31 +381,31 @@ Phase 12 — Production Polish
 
 Stability
 
-Memory leak testing
+[x] Memory leak testing
 
-Worker restart testing
+[x] Worker restart testing
 
-Durable Object restart testing
+[x] Durable Object restart testing
 
 
 Compatibility
 
-Latest Obsidian Desktop
+[x] Latest Obsidian Desktop
 
-Android
+[x] Android
 
-iOS
+[x] iOS
 
 
 Release
 
-Migration documentation
+[x] Migration documentation
 
-Upgrade path from v0.1
+[x] Upgrade path from v0.1
 
-Changelog
+[x] Changelog
 
-Release validation
+[x] Release validation
 
 
 
