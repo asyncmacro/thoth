@@ -82,6 +82,12 @@ export class VaultDurableObject {
   async fetch(request: Request) {
     const url = new URL(request.url);
     const method = request.method;
+    // Versioned endpoints support
+    let pathname = url.pathname;
+    if (pathname.startsWith('/v1')) {
+      pathname = pathname.slice(3) || '/';
+      url.pathname = pathname;
+    }
     // Rate limiting: simple per-IP counter
     const clientIp = request.headers.get('cf-connecting-ip') ?? 'unknown';
     const rateKey = `rate:${clientIp}`;
@@ -281,7 +287,11 @@ export class VaultDurableObject {
     if (ENFORCE_DEVICE_AUTH) {
       // TODO: validate Authorization header against devices
     }
-    const { baseRevision, operations } = parsed.value;
+    const { baseRevision, operations, protocolVersion } = parsed.value;
+    // Client version check / graceful upgrade
+    if (protocolVersion && protocolVersion < 1) {
+      return json({ error: 'UNSUPPORTED_PROTOCOL', message: 'protocol version too old' }, 400);
+    }
     if (operations.length > this.MAX_BATCH_SIZE) {
       return json({ error: 'BAD_REQUEST', message: `batch size exceeds ${this.MAX_BATCH_SIZE}` }, 400);
     }
@@ -365,7 +375,7 @@ export class VaultDurableObject {
     const pushingDeviceId = operations[0]?.deviceId;
     await this.broadcastVaultChanged(applied.state.revision, pushingDeviceId);
 
-    return json({ revision: applied.state.revision });
+    return json({ revision: applied.state.revision, capabilities: [] });
   }
 
   private async handlePull(

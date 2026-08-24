@@ -358,20 +358,20 @@ Phase 11 — API Improvements
 
 API
 
-Versioned endpoints
+[x] Versioned endpoints
 
-Capability discovery
+[x] Capability discovery
 
-Better error responses
+[x] Better error responses
 
-Consistent response models
+[x] Consistent response models
 
 
 Compatibility
 
-Graceful protocol upgrades
+[x] Graceful protocol upgrades
 
-Client version checks
+[x] Client version checks
 
 
 

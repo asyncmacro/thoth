@@ -115,7 +115,8 @@ describe('push', () => {
       replaceContent(1, 'notes/a.md', 'edited'),
     ]);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ revision: 2 });
+    const body = await res.json();
+    expect(body.revision).toBe(2);
 
     const meta = await doObject.fetch(new Request('https://internal/metadata'));
     expect(await meta.json()).toEqual({ id: 'vault-1', revision: 2 });
