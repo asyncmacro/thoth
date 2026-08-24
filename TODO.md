@@ -259,24 +259,24 @@ Phase 8 — Performance
 
 Server
 
-Reduce Durable Object CPU usage
+[x] Reduce Durable Object CPU usage
 
-Reduce storage writes
+[x] Reduce storage writes
 
-Smarter serialization
+[x] Smarter serialization
 
-Faster replay
+[x] Faster replay
 
 
 Plugin
 
-Incremental vault scanning
+[x] Incremental vault scanning
 
-Lower memory usage
+[x] Lower memory usage
 
-Reduced startup time
+[x] Reduced startup time
 
-Efficient operation queue
+[x] Efficient operation queue
 
 
 

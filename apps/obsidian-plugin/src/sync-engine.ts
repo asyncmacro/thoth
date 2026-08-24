@@ -11,6 +11,8 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+const MAX_BATCH_SIZE = 100;
+
 /** Result of an upload attempt. */
 export type UploadResult =
   { ok: true; newRevision: number } | { ok: false; error: string };
@@ -36,6 +38,10 @@ export async function uploadOperations(params: {
 
   if (operations.length === 0) {
     return { ok: true, newRevision: baseRevision };
+  }
+
+  if (operations.length > MAX_BATCH_SIZE) {
+    return { ok: false, error: `batch size ${operations.length} exceeds ${MAX_BATCH_SIZE}` };
   }
 
   // Re-stamp revisions so the batch is contiguous from baseRevision

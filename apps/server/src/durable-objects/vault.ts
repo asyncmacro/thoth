@@ -68,6 +68,7 @@ export class VaultDurableObject {
   private readonly ALARM_INTERVAL_MS = 60 * 1000;
   private readonly SNAPSHOT_COMPACTION_THRESHOLD = 500;
   private readonly SNAPSHOT_INTERVAL_MS = 30 * 60 * 1000;
+  private readonly MAX_BATCH_SIZE = 100;
 
   constructor(state: DurableObjectState) {
     this.state = state;
@@ -262,6 +263,9 @@ export class VaultDurableObject {
       // TODO: validate Authorization header against devices
     }
     const { baseRevision, operations } = parsed.value;
+    if (operations.length > this.MAX_BATCH_SIZE) {
+      return json({ error: 'BAD_REQUEST', message: `batch size exceeds ${this.MAX_BATCH_SIZE}` }, 400);
+    }
     const { metadata, log, snapshot } = data;
     // Operation checksum verification
     for (const op of operations) {

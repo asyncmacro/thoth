@@ -34,7 +34,7 @@ import type { VaultAdapter } from './vault-applier.js';
 import { applySnapshotToVault } from './vault-applier.js';
 import { connectRealtime, type RealtimeStatus } from './realtime-client.js';
 
-const AUTO_SYNC_DEBOUNCE_MS = 2_000;
+const AUTO_SYNC_DEBOUNCE_MS = 1_500;
 
 // Obsidian loads the plugin entry module and instantiates its default
 // export. The default export is the Obsidian plugin contract; the named
