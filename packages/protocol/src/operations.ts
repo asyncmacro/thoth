@@ -6,10 +6,23 @@
  * the discriminated union used on the wire and by the engine.
  */
 
-import type { DeviceId, OperationId, OperationMetadata, Revision } from './common.js';
+import type {
+  DeviceId,
+  OperationId,
+  OperationMetadata,
+  Revision,
+} from './common.js';
 
 export type OperationType =
-  'create-note' | 'delete-note' | 'rename-note' | 'replace-content' | 'insert-text' | 'delete-text' | 'replace-range' | 'add-asset' | 'delete-asset';
+  | 'create-note'
+  | 'delete-note'
+  | 'rename-note'
+  | 'replace-content'
+  | 'insert-text'
+  | 'delete-text'
+  | 'replace-range'
+  | 'add-asset'
+  | 'delete-asset';
 
 export interface CreateNotePayload {
   /** Vault-relative note path, e.g. "notes/hello". */

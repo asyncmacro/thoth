@@ -36,7 +36,10 @@ let pluginFolder;
 try {
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
   const raw = manifest.id || manifest.name || 'thoth-sync';
-  pluginFolder = raw.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  pluginFolder = raw
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '');
 } catch (err) {
   console.error('Error reading manifest.json:', err.message);
   process.exit(1);
@@ -53,7 +56,12 @@ if (!require('node:fs').existsSync(distDir)) {
   process.exit(1);
 }
 
-const allowed = new Set(['manifest.json', 'main.js', 'main.js.map', 'styles.css'])
+const allowed = new Set([
+  'manifest.json',
+  'main.js',
+  'main.js.map',
+  'styles.css',
+]);
 for (const entry of readdirSync(distDir)) {
   if (!allowed.has(entry)) continue;
   const src = join(distDir, entry);

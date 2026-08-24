@@ -115,7 +115,17 @@ const payloadSchemas: Record<OperationType, Validator<unknown>> = {
 
 const operationBaseSchema = object({
   id: string({ minLength: 1, maxLength: 200 }),
-  type: oneOf('create-note', 'delete-note', 'rename-note', 'replace-content', 'insert-text', 'delete-text', 'replace-range', 'add-asset', 'delete-asset'),
+  type: oneOf(
+    'create-note',
+    'delete-note',
+    'rename-note',
+    'replace-content',
+    'insert-text',
+    'delete-text',
+    'replace-range',
+    'add-asset',
+    'delete-asset'
+  ),
   deviceId: string({ minLength: 1, maxLength: 200 }),
   revision: integer({ min: 0 }),
   parentRevision: optional(integer({ min: 0 })),

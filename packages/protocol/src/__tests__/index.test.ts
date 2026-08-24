@@ -38,7 +38,15 @@ describe('protocol', () => {
 
   it('operation type is a closed union of supported kinds', () => {
     expectTypeOf<Operation['type']>().toEqualTypeOf<
-      'create-note' | 'delete-note' | 'rename-note' | 'replace-content' | 'insert-text' | 'delete-text' | 'replace-range' | 'add-asset' | 'delete-asset'
+      | 'create-note'
+      | 'delete-note'
+      | 'rename-note'
+      | 'replace-content'
+      | 'insert-text'
+      | 'delete-text'
+      | 'replace-range'
+      | 'add-asset'
+      | 'delete-asset'
     >();
   });
 

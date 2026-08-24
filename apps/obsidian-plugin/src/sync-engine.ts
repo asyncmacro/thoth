@@ -41,7 +41,10 @@ export async function uploadOperations(params: {
   }
 
   if (operations.length > MAX_BATCH_SIZE) {
-    return { ok: false, error: `batch size ${operations.length} exceeds ${MAX_BATCH_SIZE}` };
+    return {
+      ok: false,
+      error: `batch size ${operations.length} exceeds ${MAX_BATCH_SIZE}`,
+    };
   }
 
   // Re-stamp revisions so the batch is contiguous from baseRevision

@@ -159,7 +159,7 @@ interface Vault {}
 over
 
 ```ts
-type Vault = {}
+type Vault = {};
 ```
 
 unless a type alias is clearly more appropriate.
@@ -203,13 +203,13 @@ Avoid wildcard imports.
 Good:
 
 ```ts
-import { createVault } from "./vault"
+import { createVault } from './vault';
 ```
 
 Avoid:
 
 ```ts
-import * as Vault from "./vault"
+import * as Vault from './vault';
 ```
 
 ---
@@ -253,13 +253,13 @@ Never ignore Promises.
 Never write:
 
 ```ts
-doWork()
+doWork();
 ```
 
 when
 
 ```ts
-await doWork()
+await doWork();
 ```
 
 is expected.
@@ -267,7 +267,7 @@ is expected.
 Use:
 
 ```ts
-await
+await;
 ```
 
 instead of chained `.then()`.
@@ -289,7 +289,7 @@ if (!vault) {
 instead of:
 
 ```ts
-vault!
+vault!;
 ```
 
 Avoid non-null assertions.
@@ -337,7 +337,7 @@ instead of throwing strings.
 Never:
 
 ```ts
-throw "failed"
+throw 'failed';
 ```
 
 ---
@@ -349,10 +349,7 @@ Wrap errors when appropriate.
 Good:
 
 ```ts
-throw new SyncError(
-    "Failed to apply operation",
-    { cause: error }
-)
+throw new SyncError('Failed to apply operation', { cause: error });
 ```
 
 Never discard the original error.
@@ -413,15 +410,15 @@ Good:
 
 ```ts
 createVault({
-    id,
-    owner,
-})
+  id,
+  owner,
+});
 ```
 
 instead of:
 
 ```ts
-createVault(id, owner)
+createVault(id, owner);
 ```
 
 when more than two parameters exist.

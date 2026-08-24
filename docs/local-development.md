@@ -22,6 +22,7 @@ The dev server uses `wrangler` with a local Durable Object binding.
 ## Run Plugin locally
 
 Obsidian developer mode:
+
 1. `pnpm --filter @thoth/obsidian-plugin build`
 2. Symlink `apps/obsidian-plugin/dist` into your test vault’s `.obsidian/plugins/thoth`
 3. Reload Obsidian

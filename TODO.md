@@ -1,6 +1,5 @@
 I would treat v0.2 as "Production Readiness". v0.1 proves the architecture; v0.2 makes it something you'd actually want to use every day.
 
-
 ---
 
 Phase 1 — Protocol Evolution
@@ -19,7 +18,6 @@ Operation Model
 
 [x] Optional operation metadata
 
-
 Synchronization
 
 [x] Operation batching
@@ -32,7 +30,6 @@ Synchronization
 
 [x] Improved idempotency
 
-
 Validation
 
 [x] Protocol version negotiation
@@ -40,8 +37,6 @@ Validation
 [x] Backward-compatible request parsing
 
 [x] Protocol capability flags
-
-
 
 ---
 
@@ -59,7 +54,6 @@ Connections
 
 [x] Idle timeout handling
 
-
 Events
 
 [x] Push new operations instantly
@@ -70,7 +64,6 @@ Events
 
 [x] Live vault state
 
-
 Client
 
 [x] Automatic reconnect
@@ -78,8 +71,6 @@ Client
 [x] Offline detection
 
 [x] Seamless transition between polling and real-time
-
-
 
 ---
 
@@ -97,7 +88,6 @@ Asset Support
 
 [x] Arbitrary files
 
-
 Storage
 
 [x] Asset metadata
@@ -110,7 +100,6 @@ Storage
 
 [x] Duplicate detection
 
-
 Synchronization
 
 [x] Asset operations
@@ -120,8 +109,6 @@ Synchronization
 [x] Lazy downloads
 
 [x] Background asset synchronization
-
-
 
 ---
 
@@ -137,7 +124,6 @@ Snapshots
 
 [x] Snapshot verification
 
-
 Recovery
 
 [x] Restore from snapshot
@@ -145,8 +131,6 @@ Recovery
 [x] Verify snapshot integrity
 
 [x] Snapshot migration
-
-
 
 ---
 
@@ -162,7 +146,6 @@ Recovery
 
 [x] Queue recovery
 
-
 Integrity
 
 [x] Operation checksum verification
@@ -173,7 +156,6 @@ Integrity
 
 [x] Revision verification
 
-
 Diagnostics
 
 [x] Sync health report
@@ -183,8 +165,6 @@ Diagnostics
 [x] Sync statistics
 
 [x] Failure history
-
-
 
 ---
 
@@ -198,7 +178,6 @@ Detection
 
 [x] Replay protection
 
-
 Resolution
 
 [x] Improved automatic merges
@@ -209,9 +188,7 @@ Resolution
 
 [x] Retry optimization
 
-
 Still not full CRDT.
-
 
 ---
 
@@ -227,7 +204,6 @@ Settings
 
 [x] Sync statistics
 
-
 Commands
 
 [x] Sync now
@@ -237,7 +213,6 @@ Commands
 [x] Resume synchronization
 
 [x] Reset local cache
-
 
 Status
 
@@ -250,8 +225,6 @@ Status
 [x] Last synchronization
 
 [x] Active server
-
-
 
 ---
 
@@ -267,7 +240,6 @@ Server
 
 [x] Faster replay
 
-
 Plugin
 
 [x] Incremental vault scanning
@@ -277,8 +249,6 @@ Plugin
 [x] Reduced startup time
 
 [x] Efficient operation queue
-
-
 
 ---
 
@@ -292,7 +262,6 @@ Authentication
 
 [x] Session validation
 
-
 Validation
 
 [x] Request hardening
@@ -301,7 +270,6 @@ Validation
 
 [x] Abuse protection
 
-
 Server
 
 [x] Request size limits
@@ -309,8 +277,6 @@ Server
 [x] Operation count limits
 
 [x] Rate limiting (lightweight)
-
-
 
 ---
 
@@ -326,7 +292,6 @@ Documentation
 
 [x] Deployment guide
 
-
 Tooling
 
 [x] Local development improvements
@@ -336,7 +301,6 @@ Tooling
 [x] Debug mode
 
 [x] Replay operation logs
-
 
 Testing
 
@@ -349,8 +313,6 @@ Testing
 [x] Stress testing
 
 [x] Performance benchmarks
-
-
 
 ---
 
@@ -366,14 +328,11 @@ API
 
 [x] Consistent response models
 
-
 Compatibility
 
 [x] Graceful protocol upgrades
 
 [x] Client version checks
-
-
 
 ---
 
@@ -387,7 +346,6 @@ Stability
 
 [x] Durable Object restart testing
 
-
 Compatibility
 
 [x] Latest Obsidian Desktop
@@ -395,7 +353,6 @@ Compatibility
 [x] Android
 
 [x] iOS
-
 
 Release
 
@@ -406,8 +363,6 @@ Release
 [x] Changelog
 
 [x] Release validation
-
-
 
 ---
 
@@ -434,8 +389,6 @@ Smarter operation compaction
 Snapshot export/import
 
 Server maintenance commands
-
-
 
 ---
 
@@ -473,7 +426,6 @@ Cross-vault synchronization
 
 Git interoperability
 
-
 What v0.2 should feel like
 
-The goal isn't to add the most features—it's to make Thoth feel invisible. Users shouldn't think about synchronization at all. They edit notes on one device, open another, and everything is already there. It should recover gracefully from network interruptions, efficiently handle larger vaults and attachments, provide enough diagnostics to troubleshoot issues, and continue to run comfortably within the Cloudflare free tier. At the end of v0.2, Thoth should feel like a dependable piece of infrastructure rather than an experimental sync engine.  
+The goal isn't to add the most features—it's to make Thoth feel invisible. Users shouldn't think about synchronization at all. They edit notes on one device, open another, and everything is already there. It should recover gracefully from network interruptions, efficiently handle larger vaults and attachments, provide enough diagnostics to troubleshoot issues, and continue to run comfortably within the Cloudflare free tier. At the end of v0.2, Thoth should feel like a dependable piece of infrastructure rather than an experimental sync engine.

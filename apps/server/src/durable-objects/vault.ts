@@ -26,7 +26,7 @@ interface VaultMetadata {
   id: string;
   devices: Record<string, Device>;
   lastSyncAt?: number;
-} 
+}
 
 interface AssetMetadata {
   hash: string;
@@ -68,7 +68,10 @@ function json(data: unknown, status = 200): Response {
 
 export class VaultDurableObject {
   private state: DurableObjectState;
-  private connections = new Map<WebSocket, { deviceId: string; lastActive: number }>();
+  private connections = new Map<
+    WebSocket,
+    { deviceId: string; lastActive: number }
+  >();
   private readonly IDLE_TIMEOUT_MS = 5 * 60 * 1000;
   private readonly ALARM_INTERVAL_MS = 60 * 1000;
   private readonly SNAPSHOT_COMPACTION_THRESHOLD = 500;
@@ -91,7 +94,9 @@ export class VaultDurableObject {
     // Rate limiting: simple per-IP counter
     const clientIp = request.headers.get('cf-connecting-ip') ?? 'unknown';
     const rateKey = `rate:${clientIp}`;
-    const rate = await this.state.storage.get<{ count: number; ts: number }>(rateKey) ?? { count: 0, ts: Date.now() };
+    const rate = (await this.state.storage.get<{ count: number; ts: number }>(
+      rateKey
+    )) ?? { count: 0, ts: Date.now() };
     const now = Date.now();
     if (now - rate.ts > 60_000) {
       rate.count = 0;
@@ -100,7 +105,10 @@ export class VaultDurableObject {
     rate.count += 1;
     await this.state.storage.put(rateKey, rate);
     if (rate.count > 100) {
-      return new Response(JSON.stringify({ error: 'TOO_MANY_REQUESTS' }), { status: 429, headers: { 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ error: 'TOO_MANY_REQUESTS' }), {
+        status: 429,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     let data = await this.load();
@@ -291,10 +299,19 @@ export class VaultDurableObject {
     const { baseRevision, operations, protocolVersion } = parsed.value;
     // Client version check / graceful upgrade
     if (protocolVersion && protocolVersion < 1) {
-      return json({ error: 'UNSUPPORTED_PROTOCOL', message: 'protocol version too old' }, 400);
+      return json(
+        { error: 'UNSUPPORTED_PROTOCOL', message: 'protocol version too old' },
+        400
+      );
     }
     if (operations.length > this.MAX_BATCH_SIZE) {
-      return json({ error: 'BAD_REQUEST', message: `batch size exceeds ${this.MAX_BATCH_SIZE}` }, 400);
+      return json(
+        {
+          error: 'BAD_REQUEST',
+          message: `batch size exceeds ${this.MAX_BATCH_SIZE}`,
+        },
+        400
+      );
     }
     const { metadata, log, snapshot } = data;
     // Operation checksum verification
@@ -302,7 +319,10 @@ export class VaultDurableObject {
       if (op.metadata?.checksum) {
         const payloadHash = await this.hash(JSON.stringify(op.payload));
         if (payloadHash !== op.metadata.checksum) {
-          return json({ error: 'BAD_REQUEST', message: 'operation checksum mismatch' }, 400);
+          return json(
+            { error: 'BAD_REQUEST', message: 'operation checksum mismatch' },
+            400
+          );
         }
       }
     }
@@ -318,14 +338,20 @@ export class VaultDurableObject {
       );
     }
     // Duplicate operation detection & replay protection
-    const existingIds = new Set(log.operations.map(op => op.id));
-    const duplicateOps = operations.filter(op => existingIds.has(op.id));
+    const existingIds = new Set(log.operations.map((op) => op.id));
+    const duplicateOps = operations.filter((op) => existingIds.has(op.id));
     if (duplicateOps.length > 0) {
-      return json({
-        error: 'CONFLICT',
-        message: 'duplicate operations detected',
-        details: { reason: 'DUPLICATE_OPERATION', duplicateIds: duplicateOps.map(o => o.id) },
-      }, 409);
+      return json(
+        {
+          error: 'CONFLICT',
+          message: 'duplicate operations detected',
+          details: {
+            reason: 'DUPLICATE_OPERATION',
+            duplicateIds: duplicateOps.map((o) => o.id),
+          },
+        },
+        409
+      );
     }
 
     const applied = applyOperations(snapshot, operations);
@@ -371,7 +397,10 @@ export class VaultDurableObject {
       assets: data.assets,
     });
     // Audit logging
-    await this.audit('push', { revision: applied.state.revision, deviceId: operations[0]?.deviceId });
+    await this.audit('push', {
+      revision: applied.state.revision,
+      deviceId: operations[0]?.deviceId,
+    });
     // Notify connected clients about the new revision
     const pushingDeviceId = operations[0]?.deviceId;
     await this.broadcastVaultChanged(applied.state.revision, pushingDeviceId);
@@ -399,7 +428,10 @@ export class VaultDurableObject {
     });
   }
 
-  private async handleAssetUpload(request: Request, data: StoredVault): Promise<Response> {
+  private async handleAssetUpload(
+    request: Request,
+    data: StoredVault
+  ): Promise<Response> {
     const url = new URL(request.url);
     const parts = url.pathname.split('/');
     const assetId = parts[2];
@@ -411,10 +443,13 @@ export class VaultDurableObject {
     // Simple hash for verification – SHA-256 hex
     const hashBuffer = await crypto.subtle.digest('SHA-256', body);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    const mimeType = request.headers.get('content-type') ?? 'application/octet-stream';
+    const hash = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+    const mimeType =
+      request.headers.get('content-type') ?? 'application/octet-stream';
     // Duplicate detection by hash
-    const existingId = Object.entries(data.assets).find(([, meta]) => meta.hash === hash)?.[0];
+    const existingId = Object.entries(data.assets).find(
+      ([, meta]) => meta.hash === hash
+    )?.[0];
     if (existingId && existingId !== assetId) {
       // Duplicate asset already stored, reuse metadata
       return json({ assetId: existingId, hash, size, duplicate: true });
@@ -425,7 +460,10 @@ export class VaultDurableObject {
     return json({ assetId, hash, size });
   }
 
-  private async handleAssetDownload(request: Request, data: StoredVault): Promise<Response> {
+  private async handleAssetDownload(
+    request: Request,
+    data: StoredVault
+  ): Promise<Response> {
     const url = new URL(request.url);
     const parts = url.pathname.split('/');
     const assetId = parts[2];
@@ -596,9 +634,10 @@ export class VaultDurableObject {
     const stored = await this.state.storage.get<StoredVault>('vault');
     if (stored) {
       // Crash recovery: verify snapshot integrity
-      const expectedRevision = stored.log.operations.length > 0
-        ? stored.log.operations[stored.log.operations.length - 1].revision + 1
-        : 0;
+      const expectedRevision =
+        stored.log.operations.length > 0
+          ? stored.log.operations[stored.log.operations.length - 1].revision + 1
+          : 0;
       if (stored.snapshot.revision !== expectedRevision) {
         // Attempt recovery by replaying log
         const { snapshotFromLog } = await import('@thoth/operations');
@@ -637,7 +676,7 @@ export class VaultDurableObject {
   private compactLog(log: OperationLog, snapshotState: { revision: number }) {
     // Keep only operations after snapshot revision for compaction
     const cutoff = snapshotState.revision;
-    const remaining = log.operations.filter(op => op.revision > cutoff);
+    const remaining = log.operations.filter((op) => op.revision > cutoff);
     return { operations: remaining };
   }
 
@@ -656,7 +695,10 @@ export class VaultDurableObject {
     await this.state.storage.put('vault', data);
   }
 
-  private async audit(action: string, details: Record<string, unknown>): Promise<void> {
+  private async audit(
+    action: string,
+    details: Record<string, unknown>
+  ): Promise<void> {
     const entry = { ts: Date.now(), action, details };
     const key = 'audit';
     const logs = (await this.state.storage.get<Array<typeof entry>>(key)) ?? [];

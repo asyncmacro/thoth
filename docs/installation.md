@@ -17,9 +17,11 @@ pnpm install
 ## Obsidian Plugin
 
 1. Build the plugin:
+
 ```bash
 pnpm --filter @thoth/obsidian-plugin build
 ```
+
 2. Copy `apps/obsidian-plugin/dist` to your Obsidian vault’s `.obsidian/plugins/thoth/` folder.
 3. Enable the plugin in Obsidian Settings → Community plugins.
 
@@ -29,6 +31,7 @@ pnpm --filter @thoth/obsidian-plugin build
    - `VAULT_DO` binding
    - `VERSION`
 2. Deploy to Cloudflare Workers:
+
 ```bash
 pnpm --filter @thoth/server deploy
 ```

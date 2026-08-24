@@ -7,6 +7,7 @@ Thoth values correctness, maintainability, and simplicity.
 Follow `AGENTS.md` for project conventions.
 
 Key rules:
+
 - TypeScript strict mode, no `any`
 - Named exports, kebab-case filenames
 - Pure functions, validate external input, preserve error context

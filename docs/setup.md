@@ -3,6 +3,7 @@
 This guide walks you from a fresh Cloudflare Workers deployment to a working Thoth plugin in Obsidian Desktop / Mobile.
 
 ## Prerequisites
+
 - Cloudflare account
 - Node.js 20+, pnpm
 - Obsidian 1.4+ installed
@@ -11,12 +12,14 @@ This guide walks you from a fresh Cloudflare Workers deployment to a working Tho
 ## 1. Deploy the Thoth Server to Cloudflare
 
 ### 1.1 Create a Worker
+
 1. Log in to [dash.cloudflare.com](https://dash.cloudflare.com)
 2. Workers & Pages → Create Application → Workers
 3. Name: `thoth-sync`
 4. Choose a subdomain, e.g. `thoth-sync.your-subdomain.workers.dev`
 
 ### 1.2 Bind Durable Object
+
 1. In the Worker editor, open Settings → Durable Objects
 2. Add binding:
    - Binding name: `VAULT_DO`
@@ -26,15 +29,19 @@ This guide walks you from a fresh Cloudflare Workers deployment to a working Tho
    - Value: `0.1.0`
 
 ### 1.3 Deploy code
+
 From the repo:
+
 ```bash
 pnpm install
 pnpm --filter @thoth/server build
 wrangler deploy apps/server/dist/index.js
 ```
+
 Or use the Cloudflare dashboard’s “Deploy” button after pasting the built Worker.
 
 The Worker exposes:
+
 - `POST /vaults` – create vault
 - `POST /vaults/:id/push` – upload operations
 - `POST /vaults/:id/pull` – download operations
@@ -44,37 +51,48 @@ The Worker exposes:
 ## 2. Create a Vault and Device
 
 ### 2.1 Create vault
+
 ```bash
 curl -X POST https://thoth-sync.your-subdomain.workers.dev/vaults
 ```
+
 Response:
+
 ```json
 { "id": "uuid", "revision": 0 }
 ```
+
 Save the `id`.
 
 ### 2.2 Register a device
+
 ```bash
 curl -X POST https://thoth-sync.your-subdomain.workers.dev/vaults/<VAULT_ID>/devices
 ```
+
 Response:
+
 ```json
 { "deviceId": "uuid", "apiKey": "uuid" }
 ```
+
 Save both `deviceId` and `apiKey`. Keep the API key secret.
 
 ## 3. Build the Obsidian Plugin
 
 ### 3.1 Build
+
 ```bash
 pnpm install
 pnpm --filter @thoth/obsidian-plugin build
 ```
+
 Output: `apps/obsidian-plugin/dist/main.js` + `manifest.json`
 
 ### 3.2 Install into Obsidian
 
 **Desktop**
+
 1. Open Obsidian → Settings → Community plugins → Disable Safe mode
 2. Copy `apps/obsidian-plugin/dist` to:
    `~/.config/obsidian/<Vault>/ .obsidian/plugins/thoth/`
@@ -82,6 +100,7 @@ Output: `apps/obsidian-plugin/dist/main.js` + `manifest.json`
 4. Enable “Thoth Sync” in Community plugins
 
 **Mobile**
+
 1. Enable Developer mode in Obsidian Mobile settings
 2. Upload the plugin folder via Files app or Obsidian’s plugin installer
 3. Enable the plugin
@@ -97,6 +116,7 @@ Output: `apps/obsidian-plugin/dist/main.js` + `manifest.json`
 3. Save
 
 Test connection:
+
 - Command Palette → **Thoth: Check Thoth connection**
 - Should show “Server is reachable” and “Authentication succeeded”
 
@@ -110,6 +130,7 @@ Test connection:
 3. Subsequent edits create operations locally, queue them, and upload on the next sync
 
 ### Periodic sync
+
 The plugin syncs every 60 s by default with exponential backoff on failure. Manual sync is always available via the command palette.
 
 ## 6. Daily Workflow
@@ -127,6 +148,7 @@ The plugin syncs every 60 s by default with exponential backoff on failure. Manu
 - **No changes syncing**: Check Settings → Thoth Sync fields are filled
 
 ## Security Notes
+
 - Never commit API keys
 - API keys are SHA-256 hashed on server
 - Do not log vault contents

@@ -46,7 +46,9 @@ export function parsePluginData(value: unknown): PluginData {
   }
   const serverRevisionRaw = value.serverRevision;
   const serverRevision =
-    typeof serverRevisionRaw === 'number' && Number.isInteger(serverRevisionRaw) && serverRevisionRaw >= 0
+    typeof serverRevisionRaw === 'number' &&
+    Number.isInteger(serverRevisionRaw) &&
+    serverRevisionRaw >= 0
       ? serverRevisionRaw
       : 0;
   return {

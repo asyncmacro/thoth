@@ -31,7 +31,10 @@ import {
 } from './sync-engine.js';
 import { RetryScheduler } from './retry-scheduler.js';
 import type { VaultAdapter } from './vault-applier.js';
-import { applySnapshotToVault } from './vault-applier.js';
+import {
+  applySnapshotToVault,
+  applyOperationsToVault,
+} from './vault-applier.js';
 import { connectRealtime, type RealtimeStatus } from './realtime-client.js';
 
 const AUTO_SYNC_DEBOUNCE_MS = 1_500;
@@ -492,32 +495,56 @@ export class ThothPlugin extends Plugin {
       }
 
       // Upload queued operations after pulling latest state
-      if (this.queue.size > 0) {
+      const MAX_BATCH_SIZE = 100;
+      while (this.queue.size > 0) {
+        // Refresh the server revision before each batch so that operations
+        // added by other devices are picked up before we push the next chunk.
+        const latest = await downloadOperations({
+          serverUrl: this.settings.serverUrl,
+          vaultId: this.settings.vaultId,
+          sinceRevision: this.serverRevision,
+        });
+        if (latest.ok && latest.revision > this.serverRevision) {
+          // Apply any newly pulled operations to the local vault first
+          const adapter = this.createVaultAdapter();
+          await applyOperationsToVault(adapter, latest.operations);
+          this.serverRevision = latest.revision;
+          await this.saveSettings();
+        }
         const baseRevision = this.serverRevision;
-        const ops = [...this.queue.all];
+        const batch = this.queue.all.slice(0, MAX_BATCH_SIZE);
         const uploadResult = await uploadOperations({
           serverUrl: this.settings.serverUrl,
           vaultId: this.settings.vaultId,
           baseRevision,
-          operations: ops,
+          operations: batch,
         });
-        if (uploadResult.ok) {
-          const newRevision = uploadResult.newRevision;
-          const removed = acknowledgeOperations(
-            this.queue,
-            baseRevision,
-            newRevision
-          );
-          this.serverRevision = newRevision;
-          await this.saveSettings();
-          console.debug('Thoth: uploaded', { uploaded: removed, newRevision });
-          syncSucceeded = true;
-        } else {
+        if (!uploadResult.ok) {
           console.warn('Thoth: upload failed, will retry on next sync', {
             error: uploadResult.error,
             baseRevision,
           });
+          break;
         }
+        const newRevision = uploadResult.newRevision;
+        const removed = acknowledgeOperations(
+          this.queue,
+          baseRevision,
+          newRevision
+        );
+        if (removed === 0) {
+          console.warn(
+            'Thoth: upload succeeded but no operations were acknowledged, breaking to avoid loop'
+          );
+          break;
+        }
+        this.serverRevision = newRevision;
+        await this.saveSettings();
+        console.debug('Thoth: uploaded batch', {
+          uploaded: removed,
+          newRevision,
+        });
+        syncSucceeded = true;
       }
       // Background asset synchronization
       await this.syncAssets();

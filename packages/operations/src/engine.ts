@@ -88,7 +88,8 @@ export function applyOperation(state: VaultState, op: Operation): ApplyResult {
     case 'insert-text': {
       const existing = files[op.payload.path] ?? '';
       const idx = Math.min(Math.max(op.payload.index, 0), existing.length);
-      files[op.payload.path] = existing.slice(0, idx) + op.payload.text + existing.slice(idx);
+      files[op.payload.path] =
+        existing.slice(0, idx) + op.payload.text + existing.slice(idx);
       break;
     }
     case 'delete-text': {
@@ -102,7 +103,8 @@ export function applyOperation(state: VaultState, op: Operation): ApplyResult {
       const existing = files[op.payload.path] ?? '';
       const idx = Math.min(Math.max(op.payload.index, 0), existing.length);
       const end = Math.min(idx + op.payload.length, existing.length);
-      files[op.payload.path] = existing.slice(0, idx) + op.payload.text + existing.slice(end);
+      files[op.payload.path] =
+        existing.slice(0, idx) + op.payload.text + existing.slice(end);
       break;
     }
     case 'add-asset':

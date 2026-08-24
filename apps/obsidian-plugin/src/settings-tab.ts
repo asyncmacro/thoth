@@ -134,13 +134,16 @@ export class ThothSettingTab extends PluginSettingTab {
       .setName('Connection diagnostics')
       .setDesc('Test connection and view sync statistics')
       .addButton((btn) =>
-        btn.setButtonText('Test connection').onClick(() => void this.plugin.checkConnection())
+        btn
+          .setButtonText('Test connection')
+          .onClick(() => void this.plugin.checkConnection())
       );
 
     new Setting(containerEl)
       .setName('Sync statistics')
-      .setDesc(`Revision: ${this.plugin.serverRevision} • Queue: ${this.plugin.queue.size} • Last sync: ${new Date().toLocaleString()}`);
-
+      .setDesc(
+        `Revision: ${this.plugin.serverRevision} • Queue: ${this.plugin.queue.size} • Last sync: ${new Date().toLocaleString()}`
+      );
   }
 
   private bindConfig(

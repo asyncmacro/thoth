@@ -18,6 +18,7 @@ pnpm --filter @thoth/server deploy
 ```
 
 The router forwards:
+
 - `POST /vaults` → create vault
 - `GET /vaults/:id` → metadata
 - `POST /vaults/:id/push` → upload operations
@@ -28,6 +29,7 @@ The router forwards:
 ### Obsidian Plugin Release
 
 Build the plugin:
+
 ```bash
 pnpm --filter @thoth/obsidian-plugin build
 ```
