@@ -412,6 +412,12 @@ export class VaultDurableObject {
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     const mimeType = request.headers.get('content-type') ?? 'application/octet-stream';
+    // Duplicate detection by hash
+    const existingId = Object.entries(data.assets).find(([, meta]) => meta.hash === hash)?.[0];
+    if (existingId && existingId !== assetId) {
+      // Duplicate asset already stored, reuse metadata
+      return json({ assetId: existingId, hash, size, duplicate: true });
+    }
     await this.state.storage.put(`asset:${assetId}`, body);
     data.assets[assetId] = { hash, size, mimeType, uploadedAt: Date.now() };
     await this.save(data);

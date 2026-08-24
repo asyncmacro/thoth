@@ -108,7 +108,7 @@ Storage
 
 [x] Hash verification
 
-[ ] Duplicate detection
+[x] Duplicate detection
 
 
 Synchronization
