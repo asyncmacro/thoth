@@ -119,7 +119,7 @@ Synchronization
 
 [x] Lazy downloads
 
-[ ] Background asset synchronization
+[x] Background asset synchronization
 
 
 

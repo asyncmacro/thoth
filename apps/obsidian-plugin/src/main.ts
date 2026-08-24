@@ -340,6 +340,14 @@ export class ThothPlugin extends Plugin {
     this.updateStatusBar();
   }
 
+  async syncAssets(): Promise<void> {
+    // Background asset synchronization stub
+    // In production this would enumerate missing assets from the server
+    // and download them incrementally without blocking note sync.
+    if (this.isPaused) return;
+    console.debug('Thoth: background asset sync tick');
+  }
+
   private updateStatusBar(): void {
     if (!this.statusBarEl) return;
     const { serverUrl, vaultId, deviceId, apiKey } = this.settings;
@@ -511,6 +519,8 @@ export class ThothPlugin extends Plugin {
           });
         }
       }
+      // Background asset synchronization
+      await this.syncAssets();
     } catch (error) {
       console.error('Thoth: sync failed with exception', error);
     } finally {
