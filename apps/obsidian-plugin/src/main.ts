@@ -1,0 +1,659 @@
+import { Notice, Plugin } from 'obsidian';
+
+import {
+  checkHealth,
+  createVault,
+  listDevices,
+  registerDevice,
+  removeDevice,
+  rotateApiKey,
+  testAuthentication,
+} from './api.js';
+import {
+  loadPluginData,
+  savePluginData,
+  type Persistence,
+} from './persistence.js';
+import { OperationQueue } from './queue.js';
+import { attachVaultListener } from './vault-listener.js';
+import {
+  DEFAULT_SETTINGS,
+  type ThothSettings,
+  withSetting,
+} from './settings.js';
+import { ThothSettingTab } from './settings-tab.js';
+import { uuidv4 } from './uuid.js';
+import {
+  uploadOperations,
+  acknowledgeOperations,
+  downloadAndApply,
+  downloadSnapshot,
+  downloadOperations,
+} from './sync-engine.js';
+import { RetryScheduler } from './retry-scheduler.js';
+import type { VaultAdapter } from './vault-applier.js';
+import {
+  applySnapshotToVault,
+  applyOperationsToVault,
+} from './vault-applier.js';
+import { connectRealtime, type RealtimeStatus } from './realtime-client.js';
+
+const AUTO_SYNC_DEBOUNCE_MS = 1_500;
+
+// Obsidian loads the plugin entry module and instantiates its default
+// export. The default export is the Obsidian plugin contract; the named
+// export lets other modules import the type without the runtime cycle.
+export class ThothPlugin extends Plugin {
+  settings: ThothSettings = { ...DEFAULT_SETTINGS };
+  readonly queue = new OperationQueue((queue) => this.saveQueue(queue));
+  serverRevision = 0;
+  deviceList: Array<{ id: string; createdAt: number; name?: string }> = [];
+  private detachVaultListener?: () => void;
+  private scheduler?: RetryScheduler;
+  private isSyncing = false;
+  private isPaused = false;
+  private statusBarEl?: HTMLElement;
+  private realtimeClient?: { close(): void };
+  private realtimeStatus: RealtimeStatus = 'closed';
+
+  async onload(): Promise<void> {
+    await this.loadPersisted();
+
+    this.addSettingTab(new ThothSettingTab(this.app, this));
+
+    this.addCommand({
+      id: 'thoth-check-connection',
+      name: 'Check Thoth connection',
+      callback: () => {
+        void this.checkConnection();
+      },
+    });
+
+    this.addCommand({
+      id: 'thoth-sync-now',
+      name: 'Sync now',
+      callback: () => {
+        void this.manualSync();
+      },
+    });
+
+    this.addCommand({
+      id: 'thoth-pause-sync',
+      name: 'Pause synchronization',
+      callback: () => {
+        void this.pauseSync();
+      },
+    });
+
+    this.addCommand({
+      id: 'thoth-resume-sync',
+      name: 'Resume synchronization',
+      callback: () => {
+        void this.resumeSync();
+      },
+    });
+
+    this.addCommand({
+      id: 'thoth-reset-cache',
+      name: 'Reset local cache',
+      callback: () => {
+        void this.resetLocalCache();
+      },
+    });
+
+    this.scheduler = new RetryScheduler({
+      task: () => this.performSync(),
+      baseIntervalMs: 60_000,
+      maxDelayMs: 600_000,
+    });
+    this.scheduler.start();
+
+    this.statusBarEl = this.addStatusBarItem();
+    this.updateStatusBar();
+
+    this.ensureRealtimeClient();
+
+    // Sync on app foreground / visibility change
+    this.registerDomEvent(document, 'visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        void this.scheduler?.trigger();
+      }
+    });
+
+    const attachListener = () => {
+      this.detachVaultListener = attachVaultListener({
+        vault: this.app.vault,
+        queue: this.queue,
+        getDeviceId: () => this.settings.deviceId,
+        isSyncing: () => this.isSyncing,
+        onLocalChange: () => {
+          if (
+            this.settings.serverUrl &&
+            this.settings.vaultId &&
+            this.settings.deviceId &&
+            this.settings.apiKey
+          ) {
+            this.scheduler?.scheduleSoon(AUTO_SYNC_DEBOUNCE_MS);
+            this.updateStatusBar();
+          }
+        },
+      });
+    };
+    if (this.app.workspace.layoutReady) {
+      attachListener();
+    } else {
+      this.app.workspace.onLayoutReady(attachListener);
+    }
+
+    // Initial synchronization
+    void this.performSync();
+  }
+
+  onunload(): void {
+    if (this.detachVaultListener) {
+      this.detachVaultListener();
+      this.detachVaultListener = undefined;
+    }
+    if (this.scheduler) {
+      this.scheduler.stop();
+      this.scheduler = undefined;
+    }
+    this.realtimeClient?.close();
+    this.realtimeClient = undefined;
+  }
+
+  /** Restores settings and the persisted operation queue on startup. */
+  async loadPersisted(): Promise<void> {
+    const data = await loadPluginData(this.storage());
+    this.settings = data.settings;
+    this.queue.replaceAll(data.queue);
+    this.serverRevision = data.serverRevision;
+  }
+
+  /** Persists settings and the queue as one plugin data blob. */
+  async saveSettings(): Promise<void> {
+    await savePluginData(this.storage(), {
+      settings: this.settings,
+      queue: [...this.queue.all],
+      serverRevision: this.serverRevision,
+    });
+    this.ensureRealtimeClient();
+  }
+
+  async saveQueue(queue: OperationQueue): Promise<void> {
+    await savePluginData(this.storage(), {
+      settings: this.settings,
+      queue: [...queue.all],
+      serverRevision: this.serverRevision,
+    });
+  }
+
+  async checkConnection(): Promise<void> {
+    if (!this.settings.serverUrl) {
+      new Notice('Thoth: configure a server URL first');
+      return;
+    }
+
+    const health = await checkHealth(this.settings.serverUrl);
+    if (!health.ok) {
+      new Notice(`Thoth: ${health.message}`);
+      return;
+    }
+
+    const auth = await testAuthentication({
+      serverUrl: this.settings.serverUrl,
+      vaultId: this.settings.vaultId,
+      deviceId: this.settings.deviceId,
+      apiKey: this.settings.apiKey,
+    });
+    new Notice(`Thoth: ${auth.message}`);
+  }
+
+  async registerDevice(): Promise<void> {
+    const { serverUrl, vaultId, deviceName } = this.settings;
+    if (!serverUrl || !vaultId) {
+      new Notice('Thoth: server URL and vault ID are required');
+      return;
+    }
+    const name = deviceName.trim() || 'Obsidian Device';
+    const deviceId = uuidv4();
+    const res = await registerDevice({ serverUrl, vaultId, deviceId, name });
+    if (!res.ok) {
+      new Notice(`Thoth: registration failed – ${res.message}`);
+      return;
+    }
+    this.settings = withSetting(this.settings, 'deviceId', res.deviceId);
+    this.settings = withSetting(this.settings, 'apiKey', res.apiKey);
+    this.settings = withSetting(this.settings, 'deviceName', name);
+    await this.saveSettings();
+    await this.refreshDeviceList();
+    new Notice('Thoth: device registered');
+  }
+
+  async rotateApiKey(): Promise<void> {
+    const { serverUrl, vaultId, deviceId } = this.settings;
+    if (!serverUrl || !vaultId || !deviceId) {
+      new Notice('Thoth: device not registered');
+      return;
+    }
+    const res = await rotateApiKey({ serverUrl, vaultId, deviceId });
+    if (!res.ok) {
+      new Notice(`Thoth: rotate failed – ${res.message}`);
+      return;
+    }
+    this.settings = withSetting(this.settings, 'apiKey', res.apiKey);
+    await this.saveSettings();
+    new Notice('Thoth: API key rotated');
+  }
+
+  async removeDevice(): Promise<void> {
+    const { serverUrl, vaultId, deviceId } = this.settings;
+    if (!serverUrl || !vaultId || !deviceId) {
+      new Notice('Thoth: device not registered');
+      return;
+    }
+    const res = await removeDevice({ serverUrl, vaultId, deviceId });
+    if (!res.ok) {
+      new Notice(`Thoth: remove failed – ${res.message}`);
+      return;
+    }
+    this.settings = { ...this.settings, deviceId: '', apiKey: '' };
+    await this.saveSettings();
+    await this.refreshDeviceList();
+    new Notice('Thoth: device removed and local credentials cleared');
+  }
+
+  async removeDeviceById(deviceId: string): Promise<void> {
+    const { serverUrl, vaultId } = this.settings;
+    if (!serverUrl || !vaultId) {
+      new Notice('Thoth: server URL and vault ID are required');
+      return;
+    }
+    const res = await removeDevice({ serverUrl, vaultId, deviceId });
+    if (!res.ok) {
+      new Notice(`Thoth: remove failed – ${res.message}`);
+      return;
+    }
+    if (deviceId === this.settings.deviceId) {
+      this.settings = { ...this.settings, deviceId: '', apiKey: '' };
+      await this.saveSettings();
+      new Notice('Thoth: device removed and local credentials cleared');
+    } else {
+      new Notice('Thoth: device removed');
+    }
+    await this.refreshDeviceList();
+  }
+
+  async refreshDeviceList(): Promise<void> {
+    const { serverUrl, vaultId } = this.settings;
+    if (!serverUrl || !vaultId) {
+      this.deviceList = [];
+      return;
+    }
+    const res = await listDevices({ serverUrl, vaultId });
+    if (res.ok) {
+      this.deviceList = res.devices;
+    } else {
+      this.deviceList = [];
+    }
+  }
+
+  async createVault(): Promise<void> {
+    const { serverUrl } = this.settings;
+    if (!serverUrl) {
+      new Notice('Thoth: server URL is required');
+      return;
+    }
+    const res = await createVault(serverUrl);
+    if (!res.ok) {
+      new Notice(`Thoth: create vault failed – ${res.message}`);
+      return;
+    }
+    this.settings = withSetting(this.settings, 'vaultId', res.vaultId);
+    await this.saveSettings();
+    new Notice(`Thoth: vault created ${res.vaultId}`);
+  }
+
+  async manualSync(): Promise<void> {
+    if (this.scheduler) {
+      await this.scheduler.trigger();
+    } else {
+      await this.performSync();
+    }
+    new Notice('Thoth: sync triggered');
+  }
+
+  async pauseSync(): Promise<void> {
+    this.isPaused = true;
+    this.scheduler?.stop?.();
+    new Notice('Thoth: synchronization paused');
+    this.updateStatusBar();
+  }
+
+  async resumeSync(): Promise<void> {
+    this.isPaused = false;
+    this.scheduler?.start?.();
+    new Notice('Thoth: synchronization resumed');
+    this.updateStatusBar();
+  }
+
+  async resetLocalCache(): Promise<void> {
+    this.serverRevision = 0;
+    this.queue.replaceAll([]);
+    new Notice('Thoth: local cache reset');
+    this.updateStatusBar();
+  }
+
+  async syncAssets(): Promise<void> {
+    // Background asset synchronization stub
+    // In production this would enumerate missing assets from the server
+    // and download them incrementally without blocking note sync.
+    if (this.isPaused) return;
+    console.debug('Thoth: background asset sync tick');
+  }
+
+  private updateStatusBar(): void {
+    if (!this.statusBarEl) return;
+    const { serverUrl, vaultId, deviceId, apiKey } = this.settings;
+    const configured = Boolean(serverUrl && vaultId && deviceId && apiKey);
+    if (!configured) {
+      this.statusBarEl.textContent = 'Thoth: not configured';
+      this.statusBarEl.title = 'Thoth is not configured';
+      return;
+    }
+    if (this.isPaused) {
+      this.statusBarEl.textContent = 'Thoth: paused';
+      this.statusBarEl.title = 'Thoth synchronization is paused';
+      return;
+    }
+    if (this.isSyncing) {
+      this.statusBarEl.textContent = 'Thoth: syncing…';
+      this.statusBarEl.title = 'Thoth is synchronizing';
+      return;
+    }
+    const live = this.realtimeStatus === 'open' ? '● live' : '○ polling';
+    if (this.queue.size > 0) {
+      this.statusBarEl.textContent = `Thoth: ${this.queue.size} pending ${live}`;
+      this.statusBarEl.title = `${this.queue.size} local changes pending sync`;
+      return;
+    }
+    // Show last known revision as a lightweight heartbeat
+    const revText = this.serverRevision
+      ? `rev ${this.serverRevision}`
+      : 'synced';
+    this.statusBarEl.textContent = `Thoth: ${revText} ${live}`;
+    this.statusBarEl.title = `Thoth is synced at revision ${this.serverRevision}`;
+  }
+
+  private ensureRealtimeClient(): void {
+    const { serverUrl, vaultId, deviceId, apiKey } = this.settings;
+    const configured = Boolean(serverUrl && vaultId && deviceId && apiKey);
+    if (!configured) {
+      this.realtimeClient?.close();
+      this.realtimeClient = undefined;
+      this.realtimeStatus = 'closed';
+      this.scheduler?.updateBaseInterval(60_000);
+      this.updateStatusBar();
+      return;
+    }
+    if (this.realtimeClient) {
+      // already connected with current settings
+      return;
+    }
+    this.scheduler?.updateBaseInterval(300_000);
+    this.realtimeClient = connectRealtime({
+      serverUrl,
+      vaultId,
+      deviceId,
+      apiKey,
+      getLocalRevision: () => this.serverRevision,
+      requestSync: () => {
+        void this.scheduler?.trigger();
+      },
+      onStatusChange: (status) => {
+        this.realtimeStatus = status;
+        this.updateStatusBar();
+      },
+    });
+  }
+
+  private async performSync(): Promise<void> {
+    if (this.isPaused) {
+      console.debug('Thoth: sync paused, skipping');
+      return;
+    }
+    if (this.isSyncing) {
+      console.debug('Thoth: sync already in progress, skipping');
+      return;
+    }
+    this.isSyncing = true;
+    this.updateStatusBar();
+    let syncSucceeded = false;
+    try {
+      if (
+        !this.settings.serverUrl ||
+        !this.settings.vaultId ||
+        !this.settings.deviceId ||
+        !this.settings.apiKey
+      ) {
+        console.debug('Thoth: sync skipped, settings incomplete');
+        return;
+      }
+
+      const startedRevision = this.serverRevision;
+      console.debug('Thoth: sync started', {
+        revision: startedRevision,
+        queueSize: this.queue.size,
+      });
+
+      const adapter = this.createVaultAdapter();
+
+      // Restore from snapshot on initial sync before any uploads
+      let snapshotFiles: Record<string, string> = {};
+      if (this.serverRevision === 0) {
+        const snapshotResult = await downloadSnapshot({
+          serverUrl: this.settings.serverUrl,
+          vaultId: this.settings.vaultId,
+        });
+        if (snapshotResult.ok) {
+          snapshotFiles = snapshotResult.files;
+          await applySnapshotToVault(adapter, snapshotResult.files);
+          this.serverRevision = snapshotResult.revision;
+          await this.saveSettings();
+          console.debug('Thoth: restored from snapshot', {
+            revision: snapshotResult.revision,
+            files: Object.keys(snapshotResult.files).length,
+          });
+        } else {
+          console.warn('Thoth: snapshot restore failed', {
+            error: snapshotResult.error,
+          });
+        }
+      }
+
+      // Download missing operations and apply locally first to update revision
+      const downloadResult = await downloadAndApply({
+        serverUrl: this.settings.serverUrl,
+        vaultId: this.settings.vaultId,
+        sinceRevision: this.serverRevision,
+        vault: adapter,
+      });
+      if (downloadResult.ok) {
+        this.serverRevision = downloadResult.newRevision;
+        await this.saveSettings();
+        console.debug('Thoth: downloaded', {
+          from: startedRevision,
+          to: this.serverRevision,
+        });
+        syncSucceeded = true;
+        if (startedRevision === 0) {
+          await this.bootstrapLocalVault(snapshotFiles);
+        }
+      } else {
+        console.warn('Thoth: download failed, will retry on next sync', {
+          error: downloadResult.error,
+        });
+      }
+
+      // Upload queued operations after pulling latest state
+      const MAX_BATCH_SIZE = 100;
+      while (this.queue.size > 0) {
+        // Refresh the server revision before each batch so that operations
+        // added by other devices are picked up before we push the next chunk.
+        const latest = await downloadOperations({
+          serverUrl: this.settings.serverUrl,
+          vaultId: this.settings.vaultId,
+          sinceRevision: this.serverRevision,
+        });
+        if (latest.ok && latest.revision > this.serverRevision) {
+          // Apply any newly pulled operations to the local vault first
+          const adapter = this.createVaultAdapter();
+          await applyOperationsToVault(adapter, latest.operations);
+          this.serverRevision = latest.revision;
+          await this.saveSettings();
+        }
+        const baseRevision = this.serverRevision;
+        const batch = this.queue.all.slice(0, MAX_BATCH_SIZE);
+        const uploadResult = await uploadOperations({
+          serverUrl: this.settings.serverUrl,
+          vaultId: this.settings.vaultId,
+          baseRevision,
+          operations: batch,
+        });
+        if (!uploadResult.ok) {
+          console.warn('Thoth: upload failed, will retry on next sync', {
+            error: uploadResult.error,
+            baseRevision,
+          });
+          break;
+        }
+        const newRevision = uploadResult.newRevision;
+        const removed = acknowledgeOperations(
+          this.queue,
+          baseRevision,
+          newRevision
+        );
+        if (removed === 0) {
+          console.warn(
+            'Thoth: upload succeeded but no operations were acknowledged, breaking to avoid loop'
+          );
+          break;
+        }
+        this.serverRevision = newRevision;
+        await this.saveSettings();
+        console.debug('Thoth: uploaded batch', {
+          uploaded: removed,
+          newRevision,
+        });
+        syncSucceeded = true;
+      }
+      // Background asset synchronization
+      await this.syncAssets();
+    } catch (error) {
+      console.error('Thoth: sync failed with exception', error);
+    } finally {
+      this.isSyncing = false;
+      this.updateStatusBar();
+      // Provide user feedback only for manual triggers; periodic sync stays silent
+    }
+  }
+
+  private async bootstrapLocalVault(
+    serverFiles: Record<string, string>
+  ): Promise<void> {
+    if (!this.settings.deviceId) {
+      console.debug('Thoth: bootstrap skipped, device not configured');
+      return;
+    }
+    const mdFiles = this.app.vault.getMarkdownFiles();
+    let enqueued = 0;
+    for (const file of mdFiles) {
+      const path = file.path;
+      const serverContent = serverFiles[path];
+      if (serverContent === undefined) {
+        // Local file not on server → enqueue create
+        const content = await this.app.vault.read(file);
+        await this.queue.enqueue(
+          { type: 'create-note', payload: { path, content } },
+          this.settings.deviceId
+        );
+        enqueued++;
+      } else {
+        // Exists on server, check for divergence
+        const localContent = await this.app.vault.read(file);
+        if (localContent !== serverContent) {
+          await this.queue.enqueue(
+            {
+              type: 'replace-content',
+              payload: { path, content: localContent },
+            },
+            this.settings.deviceId
+          );
+          enqueued++;
+        }
+      }
+    }
+    if (enqueued > 0) {
+      await this.saveQueue(this.queue);
+      console.debug('Thoth: bootstrapped local vault', { enqueued });
+    }
+  }
+
+  private createVaultAdapter(): VaultAdapter {
+    const vault = this.app.vault;
+    return {
+      exists: async (path: string) => {
+        const file = vault.getAbstractFileByPath(path);
+        return file !== null;
+      },
+      read: async (path: string) => {
+        const file = vault.getAbstractFileByPath(path);
+        if (!file) {
+          throw new Error(`File not found: ${path}`);
+        }
+        return await vault.read(file as any);
+      },
+      create: async (path: string, content: string) => {
+        // Ensure parent folders exist before creating the file
+        const parts = path.split('/');
+        parts.pop();
+        let folderPath = '';
+        for (const part of parts) {
+          folderPath = folderPath ? `${folderPath}/${part}` : part;
+          const existing = vault.getAbstractFileByPath(folderPath);
+          if (!existing) {
+            await vault.createFolder(folderPath);
+          }
+        }
+        await vault.create(path, content);
+      },
+      modify: async (file: { path: string }, content: string) => {
+        const f = vault.getAbstractFileByPath(file.path);
+        if (f) {
+          await vault.modify(f as any, content);
+        }
+      },
+      rename: async (file: { path: string }, newPath: string) => {
+        const f = vault.getAbstractFileByPath(file.path);
+        if (f) {
+          await vault.rename(f as any, newPath);
+        }
+      },
+      delete: async (path: string) => {
+        const file = vault.getAbstractFileByPath(path);
+        if (file) {
+          await vault.delete(file);
+        }
+      },
+    };
+  }
+
+  private storage(): Persistence {
+    return {
+      loadData: () => this.loadData(),
+      saveData: (data) => this.saveData(data),
+    };
+  }
+}
+
+export default ThothPlugin;
