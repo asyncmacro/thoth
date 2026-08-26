@@ -6,6 +6,8 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc && node build.config.mjs",
+    "build:main": "tsc && RELEASE_OUT=build node build.config.mjs",
+    "build:beta": "tsc && RELEASE_OUT=build node build.config.mjs",
     "plugin:install": "node scripts/install-plugin.cjs"
   },
   "dependencies": {
@@ -13,6 +15,11 @@
     "@thoth/validation": "workspace:*"
   },
   "devDependencies": {
-    "obsidian": "^1.13.1"
+    "obsidian": "^1.13.1",
+    "@semantic-release/commit-analyzer": "^13.0.1",
+    "@semantic-release/release-notes-generator": "^14.1.1",
+    "@semantic-release/github": "^12.0.8",
+    "semantic-release": "^25.0.5",
+    "semantic-release-obsidian-plugin": "github:brianrodri/semantic-release-obsidian-plugin"
   }
 }

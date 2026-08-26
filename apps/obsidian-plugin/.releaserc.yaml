@@ -1,0 +1,18 @@
+# Semantic release configuration for Thoth Obsidian plugin.
+# Run via pnpm exec semantic-release in apps/obsidian-plugin
+branches:
+  - name: main
+  - name: beta
+    prerelease: true
+plugins:
+  - - "@semantic-release/commit-analyzer"
+    - preset: "conventionalcommits"
+  - - "@semantic-release/release-notes-generator"
+    - preset: "conventionalcommits"
+  - "semantic-release-obsidian-plugin"
+  - - "@semantic-release/github"
+    - assets:
+        - path: manifest.json
+        - path: build/main.js
+        - path: build/styles.css
+tagFormat: "${version}"

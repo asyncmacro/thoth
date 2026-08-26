@@ -4,3 +4,4 @@ packages:
 allowBuilds:
   esbuild: true
   workerd: true
+  'semantic-release-obsidian-plugin@https://codeload.github.com/brianrodri/semantic-release-obsidian-plugin/tar.gz/fce6ecedca4f3ce5903ec37458273cc614eb8054': true

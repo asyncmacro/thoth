@@ -1,0 +1,20 @@
+name: Cleanup Releases
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: sgpublic/delete-release-action@v1.4
+        with:
+          pre-release-drop: true
+          pre-release-keep-count: 5
+          draft-drop: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
