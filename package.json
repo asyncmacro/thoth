@@ -6,7 +6,7 @@
   "packageManager": "pnpm@11.22.0",
   "type": "module",
   "scripts": {
-    "typecheck": "tsc --build",
+    "typecheck": "pnpm -r exec tsc --build --clean && pnpm -r exec tsc --build && pnpm -F @thoth/obsidian-plugin exec tsc --noEmit && pnpm -F @thoth/server exec tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
