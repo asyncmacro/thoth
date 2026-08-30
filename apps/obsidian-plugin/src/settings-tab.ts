@@ -62,7 +62,8 @@ export class ThothSettingTab extends PluginSettingTab {
         for (const id of this.plugin.settings.lastVaultIds) {
           dd.addOption(id, `${id.slice(0, 8)}…`);
         }
-        dd.setValue('');
+        const current = this.plugin.settings.vaultId;
+        dd.setValue(current && this.plugin.settings.lastVaultIds.includes(current) ? current : '');
         dd.onChange(async (value) => {
           if (!value) return;
           this.plugin.settings = withSetting(this.plugin.settings, 'vaultId', value);
@@ -101,7 +102,8 @@ export class ThothSettingTab extends PluginSettingTab {
           for (const id of vaults.slice(0, 20)) {
             dd.addOption(id, `${id.slice(0, 8)}…`);
           }
-          dd.setValue('');
+          const cur = this.plugin.settings.vaultId;
+          dd.setValue(cur && vaults.includes(cur) ? cur : '');
           dd.onChange(async (value) => {
             if (!value) return;
             this.plugin.settings = withSetting(this.plugin.settings, 'vaultId', value);
