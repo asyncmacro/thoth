@@ -8,6 +8,15 @@ export interface ThothSettings {
   syncedExtensions: string[];
   /** Recently used vaultIds for picker, most recent first. */
   lastVaultIds: string[];
+  /** Last health check result, not critical — ephemeral. */
+  lastHealthCheck?: HealthCache;
+}
+
+export interface HealthCache {
+  url: string;
+  ok: boolean;
+  message: string;
+  at: number;
 }
 
 export const DEFAULT_SETTINGS: Readonly<ThothSettings> = {
@@ -18,6 +27,7 @@ export const DEFAULT_SETTINGS: Readonly<ThothSettings> = {
   deviceName: '',
   syncedExtensions: ['md'],
   lastVaultIds: [],
+  lastHealthCheck: undefined,
 };
 
 function asString(value: unknown, fallback: string): string {
@@ -56,6 +66,13 @@ function asVaultIdList(value: unknown): string[] {
   return ids.slice(0, 10);
 }
 
+function asHealthCache(value: unknown): HealthCache | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const r = value as Record<string, unknown>;
+  if (typeof r.url !== 'string' || typeof r.message !== 'string' || typeof r.ok !== 'boolean' || typeof r.at !== 'number') return undefined;
+  return { url: r.url, ok: r.ok, message: r.message, at: r.at };
+}
+
 export function pushRecentVaultId(settings: ThothSettings, vaultId: string): ThothSettings {
   const id = vaultId.trim();
   if (!id) return settings;
@@ -82,6 +99,7 @@ export function parseSettings(value: unknown): ThothSettings {
     deviceName: asString(record.deviceName, DEFAULT_SETTINGS.deviceName),
     syncedExtensions: asExtensionList(record.syncedExtensions),
     lastVaultIds: asVaultIdList(record.lastVaultIds),
+    lastHealthCheck: asHealthCache(record.lastHealthCheck),
   };
 }
 
