@@ -84,7 +84,11 @@ export class ThothSettingTab extends PluginSettingTab {
         .setDisabled(!hasServer)
         .onClick(async () => {
           await this.plugin.createVault();
-          // createVault now pushes to lastVaultIds internally
+          await this.plugin.refreshDeviceList();
+          const list = this.plugin.deviceList ?? [];
+          if (!list.some((d) => d.id === this.plugin.settings.deviceId)) {
+            await this.plugin.registerDevice();
+          }
           this.display();
         })
     );
