@@ -146,10 +146,7 @@ export function createRouter(env: Env) {
           return forwardToVault('/pull');
         }
 
-        if (
-          url.pathname === `/vaults/${vaultId}/snapshot` &&
-          request.method === 'GET'
-        ) {
+        if (url.pathname === `/vaults/${vaultId}/snapshot` && (request.method === 'GET' || request.method === 'POST')) {
           return forwardToVault('/snapshot');
         }
 

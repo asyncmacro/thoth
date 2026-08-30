@@ -160,6 +160,23 @@ export class VaultDurableObject {
       });
     }
 
+    if (url.pathname === '/snapshot' && method === 'POST') {
+      const body = (await request.json().catch(() => null)) as unknown;
+      const { snapshotSchema } = await import('@thoth/validation');
+      const parsed = snapshotSchema(body);
+      if (!parsed.ok) {
+        return validationErrorResponse(parsed.issues);
+      }
+      const snapshot = parsed.value as VaultState & { assets?: Record<string, unknown> };
+      // Preserve revision monotonicity
+      if (snapshot.revision < data.snapshot.revision) {
+        return json({ error: 'BAD_REQUEST', message: 'snapshot revision cannot go backwards' }, 400);
+      }
+      data.snapshot = { revision: snapshot.revision, files: snapshot.files, assets: (snapshot as unknown as VaultState).assets ?? {} } as VaultState;
+      await this.save(data);
+      return json({ ok: true, revision: data.snapshot.revision });
+    }
+
     if (url.pathname.startsWith('/assets/') && method === 'PUT') {
       return this.handleAssetUpload(request, data);
     }

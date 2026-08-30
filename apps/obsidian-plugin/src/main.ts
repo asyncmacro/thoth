@@ -109,6 +109,22 @@ export class ThothPlugin extends Plugin {
       },
     });
 
+    this.addCommand({
+      id: 'thoth-export-snapshot',
+      name: 'Export snapshot (thoth-snapshot.json)',
+      callback: () => {
+        void this.exportSnapshot();
+      },
+    });
+
+    this.addCommand({
+      id: 'thoth-import-snapshot',
+      name: 'Import snapshot (thoth-snapshot.json)',
+      callback: () => {
+        void this.importSnapshot();
+      },
+    });
+
     this.scheduler = new RetryScheduler({
       task: () => this.performSync(),
       baseIntervalMs: 60_000,
@@ -354,12 +370,80 @@ export class ThothPlugin extends Plugin {
     this.updateStatusBar();
   }
 
+  async exportSnapshot(): Promise<void> {
+    if (!this.settings.serverUrl || !this.settings.vaultId) {
+      new Notice('Thoth: configure server and vault first');
+      return;
+    }
+    const snap = await downloadSnapshot({ serverUrl: this.settings.serverUrl, vaultId: this.settings.vaultId });
+    if (!snap.ok) {
+      new Notice(`Thoth: export failed — ${snap.error}`);
+      return;
+    }
+    const content = JSON.stringify({ revision: snap.revision, files: snap.files, assets: snap.assets ?? {} }, null, 2);
+    const path = 'thoth-snapshot.json';
+    const existing = this.app.vault.getAbstractFileByPath(path);
+    if (existing) await this.app.vault.delete(existing);
+    await this.app.vault.create(path, content);
+    new Notice(`Thoth: snapshot exported to ${path} rev ${snap.revision}`);
+  }
+
+  async importSnapshot(): Promise<void> {
+    const path = 'thoth-snapshot.json';
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (!file) {
+      new Notice('Thoth: thoth-snapshot.json not found in vault root');
+      return;
+    }
+    const content = await this.app.vault.read(file as any);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      new Notice('Thoth: snapshot JSON malformed');
+      return;
+    }
+    const res = await fetch(`${this.settings.serverUrl.replace(/\/+$/, '')}/vaults/${encodeURIComponent(this.settings.vaultId)}/snapshot`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(parsed),
+    });
+    if (!res.ok) {
+      new Notice(`Thoth: import failed with status ${res.status}`);
+      return;
+    }
+    new Notice('Thoth: snapshot imported');
+  }
+
   async syncAssets(): Promise<void> {
-    // Background asset synchronization stub
-    // In production this would enumerate missing assets from the server
-    // and download them incrementally without blocking note sync.
     if (this.isPaused) return;
-    console.debug('Thoth: background asset sync tick');
+    if (!this.settings.serverUrl || !this.settings.vaultId) return;
+    try {
+      const snap = await downloadSnapshot({ serverUrl: this.settings.serverUrl, vaultId: this.settings.vaultId });
+      if (!snap.ok || !snap.assets) return;
+      const adapter = this.createVaultAdapter();
+      let downloaded = 0;
+      for (const [path, meta] of Object.entries(snap.assets)) {
+        if (downloaded >= 5) break; // incremental, avoid blocking
+        const exists = await adapter.exists(path);
+        if (exists) continue;
+        const res = await downloadAsset({ serverUrl: this.settings.serverUrl, vaultId: this.settings.vaultId, assetId: meta.assetId });
+        if (!res.ok) {
+          console.warn('Thoth: background asset download failed', { path, assetId: meta.assetId, error: res.error });
+          continue;
+        }
+        if (res.data.byteLength > MAX_ASSET_SIZE) {
+          console.warn('Thoth: background asset too large, skipped', { path, size: res.data.byteLength });
+          continue;
+        }
+        await adapter.createBinary?.(path, res.data);
+        downloaded++;
+        console.debug('Thoth: background asset downloaded', { path });
+      }
+      if (downloaded > 0) new Notice(`Thoth: downloaded ${downloaded} asset(s) in background`);
+    } catch (error) {
+      console.debug('Thoth: background asset sync failed', error);
+    }
   }
 
   private updateStatusBar(): void {
