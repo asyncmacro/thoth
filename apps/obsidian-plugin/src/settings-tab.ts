@@ -166,11 +166,13 @@ export class ThothSettingTab extends PluginSettingTab {
           });
       });
 
-    // S3 — Device (auto deviceId)
+    // S3 — Device (auto deviceId) — registeredForThisVault matters after vault switch
     const { deviceId, apiKey, deviceName } = this.plugin.settings;
     const registered = Boolean(deviceId && apiKey);
+    const listForS3 = this.plugin.deviceList ?? [];
+    const isRegisteredForThisVault = registered && listForS3.some((d) => d.id === deviceId);
 
-    if (registered) {
+    if (registered && isRegisteredForThisVault) {
       new Setting(containerEl)
         .setName('3. Current device ✓')
         .setDesc(
