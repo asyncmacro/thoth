@@ -202,6 +202,21 @@ export function createRouter(env: Env) {
           return addCors(res);
         }
 
+        // Asset routes — must forward ArrayBuffer, not text
+        if (url.pathname.startsWith(`/vaults/${vaultId}/assets`)) {
+          if (!env.VAULT_DO) {
+            return addCors(handleError(new HttpError(500, 'INTERNAL_ERROR', 'Vault Durable Object binding is not configured')));
+          }
+          const doId = env.VAULT_DO.idFromName(vaultId);
+          const stub = env.VAULT_DO.get(doId);
+          const assetPath = url.pathname.replace(`/vaults/${vaultId}`, '');
+          const hasBody = request.method !== 'GET' && request.method !== 'HEAD';
+          const body = hasBody ? await request.arrayBuffer() : undefined;
+          const headers = new Headers(request.headers);
+          const res = await stub.fetch(`https://internal${assetPath}`, { method: request.method, headers, body });
+          return addCors(res);
+        }
+
         // Device routes
         if (url.pathname.startsWith(`/vaults/${vaultId}/devices`)) {
           if (env.VAULT_DO) {
