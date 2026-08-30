@@ -69,6 +69,11 @@ export class ThothSettingTab extends PluginSettingTab {
           this.plugin.settings = withSetting(this.plugin.settings, 'vaultId', value);
           this.plugin.settings = pushRecentVaultId(this.plugin.settings, value);
           await this.plugin.saveSettings();
+          await this.plugin.refreshDeviceList();
+          const list = this.plugin.deviceList ?? [];
+          if (!list.some((d) => d.id === this.plugin.settings.deviceId)) {
+            await this.plugin.registerDevice();
+          }
           this.display();
         });
       });
@@ -109,6 +114,11 @@ export class ThothSettingTab extends PluginSettingTab {
             this.plugin.settings = withSetting(this.plugin.settings, 'vaultId', value);
             this.plugin.settings = pushRecentVaultId(this.plugin.settings, value);
             await this.plugin.saveSettings();
+            await this.plugin.refreshDeviceList();
+            const list = this.plugin.deviceList ?? [];
+            if (!list.some((d) => d.id === this.plugin.settings.deviceId)) {
+              await this.plugin.registerDevice();
+            }
             this.display();
           });
         });
@@ -139,6 +149,8 @@ export class ThothSettingTab extends PluginSettingTab {
           this.plugin.settings = pushRecentVaultId(this.plugin.settings, parsed.vaultId);
           await this.plugin.saveSettings();
           new Notice(`✓ Imported vault ${parsed.vaultId.slice(0, 8)}…`);
+          // auto-register for imported vault
+          await this.plugin.registerDevice();
           this.display();
         })
       );
