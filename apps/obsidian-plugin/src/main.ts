@@ -125,6 +125,14 @@ export class ThothPlugin extends Plugin {
       },
     });
 
+    this.addCommand({
+      id: 'thoth-rescan-vault',
+      name: 'Rescan vault (re-queue missing files)',
+      callback: () => {
+        void this.rescanVault();
+      },
+    });
+
     this.scheduler = new RetryScheduler({
       task: () => this.performSync(),
       baseIntervalMs: 60_000,
@@ -787,6 +795,81 @@ export class ThothPlugin extends Plugin {
     if (enqueued > 0) {
       await this.saveQueue(this.queue);
       console.debug('Thoth: bootstrapped local vault', { enqueued });
+    }
+  }
+
+  async rescanVault(): Promise<void> {
+    if (!this.settings.serverUrl || !this.settings.vaultId || !this.settings.deviceId) {
+      new Notice('Thoth: configure server, vault and device first');
+      return;
+    }
+    new Notice('Thoth: rescanning vault…');
+    try {
+      const snap = await downloadSnapshot({ serverUrl: this.settings.serverUrl, vaultId: this.settings.vaultId });
+      if (!snap.ok) {
+        new Notice(`Thoth: rescan failed — ${snap.error}`);
+        return;
+      }
+      const extensions = new Set(this.settings.syncedExtensions.map((e) => e.toLowerCase()));
+      const allFiles = this.app.vault.getFiles();
+      const syncedFiles = allFiles.filter((f) => extensions.has(f.extension.toLowerCase()));
+      const queuedPaths = new Set<string>();
+      for (const op of this.queue.all) {
+        const p = (op.payload as { path?: string; newPath?: string }).path ?? (op.payload as { newPath?: string }).newPath;
+        if (p) queuedPaths.add(p);
+        const old = (op.payload as { oldPath?: string }).oldPath;
+        if (old) queuedPaths.add(old);
+      }
+      let enqueued = 0;
+      for (const file of syncedFiles) {
+        const path = file.path;
+        if (queuedPaths.has(path)) continue;
+        const isBinary = isBinaryPath(path);
+        if (isBinary) {
+          const serverMeta = snap.assets?.[path];
+          const buffer = await this.app.vault.readBinary(file);
+          if (buffer.byteLength > MAX_ASSET_SIZE) continue;
+          const hash = await hashArrayBuffer(buffer);
+          if (!serverMeta) {
+            const assetId = assetIdForPath(path);
+            const mimeType = mimeTypeForPath(path);
+            await this.queue.enqueue(
+              { type: 'add-asset', payload: { path, assetId, hash, size: buffer.byteLength, ...(mimeType ? { mimeType } : {}) } },
+              this.settings.deviceId
+            );
+            enqueued++;
+          } else if (serverMeta.hash !== hash) {
+            const assetId = assetIdForPath(path);
+            const mimeType = mimeTypeForPath(path);
+            await this.queue.enqueue(
+              { type: 'add-asset', payload: { path, assetId, hash, size: buffer.byteLength, ...(mimeType ? { mimeType } : {}) } },
+              this.settings.deviceId
+            );
+            enqueued++;
+          }
+        } else {
+          const serverContent = snap.files[path];
+          const localContent = await this.app.vault.read(file);
+          if (serverContent === undefined) {
+            await this.queue.enqueue({ type: 'create-note', payload: { path, content: localContent } }, this.settings.deviceId);
+            enqueued++;
+          } else if (localContent !== serverContent) {
+            await this.queue.enqueue({ type: 'replace-content', payload: { path, content: localContent } }, this.settings.deviceId);
+            enqueued++;
+          }
+        }
+      }
+      if (enqueued > 0) {
+        await this.saveQueue(this.queue);
+        new Notice(`Thoth: rescan enqueued ${enqueued} file(s)`);
+        void this.scheduler?.trigger();
+      } else {
+        new Notice('Thoth: rescan — nothing missing');
+      }
+      this.updateStatusBar();
+    } catch (error) {
+      console.error('Thoth: rescan failed', error);
+      new Notice(`Thoth: rescan failed — ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
