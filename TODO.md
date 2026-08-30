@@ -439,7 +439,7 @@ Goal: user enters only `Server URL`; `vaultId`/`deviceId`/`apiKey` are picker/au
 Plugin `apps/obsidian-plugin/src`
 
 [x] `settings.ts:1` add `lastVaultIds: string[]` + `asVaultIdList` + `parseSettings` migration
-[ ] `settings.ts` add `serverUrl` health cache type
+[x] `settings.ts` add `serverUrl` health cache type
 [x] `api.ts` add `validateServerUrl` + `importVaultLink` parser for `thoth://?serverUrl&vaultId`
 [x] `settings-tab.ts:21` replace `Vault ID` TextComponent with stepper S1 Server `[Text][Check]` → `checkHealth` `✓/✗`
 [x] `settings-tab.ts` S2 Vault `[Dropdown recent][Create new vault][Import link/QR]` → `createVault:main.ts:301`

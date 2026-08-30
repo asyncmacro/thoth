@@ -110,6 +110,7 @@ describe('loadPluginData', () => {
         deviceName: '',
         syncedExtensions: ['md'],
         lastVaultIds: [],
+        lastHealthCheck: undefined,
       },
       queue: [validOperation(1)],
       serverRevision: 42,
