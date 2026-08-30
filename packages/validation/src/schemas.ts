@@ -31,6 +31,11 @@ import {
   type Validator,
 } from './validators.js';
 
+export const serverUrlSchema: Validator<string> = string({
+  pattern: /^https?:\/\/.+/,
+  maxLength: 500,
+});
+
 export const createVaultSchema: Validator<CreateVaultRequest> = object({
   name: optional(string({ maxLength: 200 })),
 });

@@ -1,7 +1,8 @@
-import { App, PluginSettingTab, Setting, TextComponent } from 'obsidian';
+import { App, Notice, PluginSettingTab, Setting, TextComponent } from 'obsidian';
 
+import { checkHealth, validateServerUrl, parseImportVaultLink } from './api.js';
 import type { ThothPlugin } from './main.js';
-import { withSetting, type ThothSettings } from './settings.js';
+import { pushRecentVaultId, withSetting, type ThothSettings } from './settings.js';
 import { defaultDeviceName } from './device-name.js';
 
 export class ThothSettingTab extends PluginSettingTab {
@@ -18,22 +19,94 @@ export class ThothSettingTab extends PluginSettingTab {
     // Refresh device list silently on each open
     void this.plugin.refreshDeviceList();
 
-    new Setting(containerEl)
-      .setName('Server URL')
-      .setDesc(
-        'Base URL of the Thoth sync server, e.g. https://sync.example.com'
-      )
-      .addText((text) =>
-        this.bindConfig(text, 'serverUrl', 'https://sync.example.com')
-      );
+    containerEl.createEl('h2', { text: 'Setup wizard — one field' });
 
-    new Setting(containerEl)
-      .setName('Vault ID')
-      .setDesc('Identifier of the vault on the server')
-      .addText((text) => this.bindConfig(text, 'vaultId', ''))
-      .addButton((btn) =>
-        btn.setButtonText('Create new vault').onClick(async () => {
+    const serverValidation = validateServerUrl(this.plugin.settings.serverUrl);
+    const hasServer = serverValidation.ok;
+    const hasVault = Boolean(this.plugin.settings.vaultId);
+
+    // S1 — Server URL with inline health check
+    const serverSetting = new Setting(containerEl)
+      .setName('1. Server URL')
+      .setDesc(
+        hasServer ? '✓ Valid URL — click Check to verify reachability' : 'Base URL of the Thoth sync server, e.g. https://sync.example.com'
+      );
+    serverSetting.addText((text) => {
+      this.bindConfig(text, 'serverUrl', 'https://sync.example.com');
+      text.inputEl.addEventListener('blur', () => this.display());
+    });
+    serverSetting.addButton((btn) =>
+      btn
+        .setButtonText('Check')
+        .setDisabled(!hasServer)
+        .onClick(async () => {
+          btn.setDisabled(true);
+          btn.setButtonText('Checking…');
+          const res = await checkHealth(this.plugin.settings.serverUrl);
+          new Notice(res.ok ? `✓ ${res.message}` : `✗ ${res.message}`);
+          this.display();
+        })
+    );
+    if (!hasServer && this.plugin.settings.serverUrl) {
+      serverSetting.setDesc(`✗ ${serverValidation.ok ? '' : (serverValidation as { ok: false; error: string }).error}`);
+    }
+
+    // S2 — Vault picker
+    const vaultSetting = new Setting(containerEl).setName('2. Vault').setDesc(
+      hasVault ? `Selected: ${this.plugin.settings.vaultId.slice(0, 8)}…` : 'Create a new vault or import via thoth:// link'
+    );
+    // Recent vaults dropdown
+    if (this.plugin.settings.lastVaultIds.length > 0) {
+      vaultSetting.addDropdown((dd) => {
+        dd.addOption('', '— Recent vaults —');
+        for (const id of this.plugin.settings.lastVaultIds) {
+          dd.addOption(id, `${id.slice(0, 8)}…`);
+        }
+        dd.setValue('');
+        dd.onChange(async (value) => {
+          if (!value) return;
+          this.plugin.settings = withSetting(this.plugin.settings, 'vaultId', value);
+          this.plugin.settings = pushRecentVaultId(this.plugin.settings, value);
+          await this.plugin.saveSettings();
+          this.display();
+        });
+      });
+    }
+    vaultSetting.addButton((btn) =>
+      btn
+        .setButtonText('Create new vault')
+        .setDisabled(!hasServer)
+        .onClick(async () => {
           await this.plugin.createVault();
+          // createVault now pushes to lastVaultIds internally
+          this.display();
+        })
+    );
+    // Import link
+    const importSetting = new Setting(containerEl)
+      .setName('Import vault link')
+      .setDesc('Paste thoth://?serverUrl=https://...&vaultId=... from another device')
+      .addText((text) => {
+        text.setPlaceholder('thoth://?serverUrl=https://...&vaultId=...');
+        text.inputEl.style.minWidth = '260px';
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (importSetting as any)._importText = text;
+      })
+      .addButton((btn) =>
+        btn.setButtonText('Import').onClick(async () => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const txt = (importSetting as any)._importText as TextComponent;
+          const link = txt.getValue();
+          const parsed = parseImportVaultLink(link);
+          if (!parsed) {
+            new Notice('✗ Invalid thoth:// link');
+            return;
+          }
+          this.plugin.settings = withSetting(this.plugin.settings, 'serverUrl', parsed.serverUrl);
+          this.plugin.settings = withSetting(this.plugin.settings, 'vaultId', parsed.vaultId);
+          this.plugin.settings = pushRecentVaultId(this.plugin.settings, parsed.vaultId);
+          await this.plugin.saveSettings();
+          new Notice(`✓ Imported vault ${parsed.vaultId.slice(0, 8)}…`);
           this.display();
         })
       );
@@ -41,7 +114,7 @@ export class ThothSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName('Synced file extensions')
       .setDesc(
-        'Comma-separated extensions synchronized as text files (e.g. md, txt, canvas). Binary files are not yet synced.'
+        'Comma-separated extensions synchronized as text files (e.g. md, txt, canvas). Binary assets (png, pdf) use add-asset.'
       )
       .addText((text) => {
         text
@@ -61,15 +134,15 @@ export class ThothSettingTab extends PluginSettingTab {
           });
       });
 
-    // Device section
+    // S3 — Device (auto deviceId)
     const { deviceId, apiKey, deviceName } = this.plugin.settings;
     const registered = Boolean(deviceId && apiKey);
 
     if (registered) {
       new Setting(containerEl)
-        .setName('Current device')
+        .setName('3. Current device ✓')
         .setDesc(
-          `Registered as ${deviceName || 'Unknown'} (${deviceId.slice(0, 8)}…)`
+          `Registered as ${deviceName || 'Unknown'} (${deviceId.slice(0, 8)}…) • apiKey ••••`
         )
         .addButton((btn) =>
           btn
@@ -88,8 +161,8 @@ export class ThothSettingTab extends PluginSettingTab {
         );
     } else {
       new Setting(containerEl)
-        .setName('Device name')
-        .setDesc('Human-readable name for this device')
+        .setName('3. Device name')
+        .setDesc('Human-readable name for this device (auto deviceId)')
         .addText((text) => {
           const value = deviceName || defaultDeviceName();
           text
@@ -106,13 +179,16 @@ export class ThothSettingTab extends PluginSettingTab {
         });
 
       new Setting(containerEl)
-        .setName('')
-        .setDesc('')
+        .setName('Register device')
+        .setDesc(hasVault ? 'Ready to register' : 'Select a vault (step 2) first')
         .addButton((btn) =>
-          btn.setButtonText('Register this device').onClick(async () => {
-            await this.plugin.registerDevice();
-            this.display();
-          })
+          btn
+            .setButtonText('Register this device')
+            .setDisabled(!hasVault || !hasServer)
+            .onClick(async () => {
+              await this.plugin.registerDevice();
+              this.display();
+            })
         );
     }
 

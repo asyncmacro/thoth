@@ -44,6 +44,7 @@ export {
 } from './operations.js';
 export {
   CreateVaultRequest,
+  ImportVaultRequest,
   PullOperationsRequest,
   PushOperationsRequest,
   RegisterDeviceRequest,

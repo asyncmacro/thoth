@@ -6,6 +6,8 @@ export interface ThothSettings {
   deviceName: string;
   /** File extensions synchronized as text files, e.g. ["md", "txt"]. */
   syncedExtensions: string[];
+  /** Recently used vaultIds for picker, most recent first. */
+  lastVaultIds: string[];
 }
 
 export const DEFAULT_SETTINGS: Readonly<ThothSettings> = {
@@ -15,6 +17,7 @@ export const DEFAULT_SETTINGS: Readonly<ThothSettings> = {
   apiKey: '',
   deviceName: '',
   syncedExtensions: ['md'],
+  lastVaultIds: [],
 };
 
 function asString(value: unknown, fallback: string): string {
@@ -40,6 +43,26 @@ function asExtensionList(value: unknown): string[] {
     : [...DEFAULT_SETTINGS.syncedExtensions];
 }
 
+function asVaultIdList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const ids: string[] = [];
+  for (const item of value) {
+    if (typeof item !== 'string') continue;
+    const id = item.trim();
+    if (id && !ids.includes(id)) ids.push(id);
+  }
+  return ids.slice(0, 10);
+}
+
+export function pushRecentVaultId(settings: ThothSettings, vaultId: string): ThothSettings {
+  const id = vaultId.trim();
+  if (!id) return settings;
+  const filtered = settings.lastVaultIds.filter((v) => v !== id);
+  return withSetting(settings, 'lastVaultIds', [id, ...filtered].slice(0, 10));
+}
+
 /**
  * Parses settings from persisted plugin data. Saved data is external
  * input and may be malformed: every field is validated and falls back to
@@ -58,6 +81,7 @@ export function parseSettings(value: unknown): ThothSettings {
     apiKey: asString(record.apiKey, DEFAULT_SETTINGS.apiKey),
     deviceName: asString(record.deviceName, DEFAULT_SETTINGS.deviceName),
     syncedExtensions: asExtensionList(record.syncedExtensions),
+    lastVaultIds: asVaultIdList(record.lastVaultIds),
   };
 }
 

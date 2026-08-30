@@ -109,6 +109,7 @@ describe('loadPluginData', () => {
         apiKey: 'k',
         deviceName: '',
         syncedExtensions: ['md'],
+        lastVaultIds: [],
       },
       queue: [validOperation(1)],
       serverRevision: 42,

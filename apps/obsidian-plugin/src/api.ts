@@ -27,6 +27,46 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+export function validateServerUrl(url: string): { ok: true; url: string } | { ok: false; error: string } {
+  const trimmed = url.trim();
+  if (!trimmed) return { ok: false, error: 'Server URL is required' };
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+      return { ok: false, error: 'URL must start with https:// or http://' };
+    }
+    return { ok: true, url: parsed.toString().replace(/\/+$/, '') };
+  } catch {
+    return { ok: false, error: 'Invalid URL format' };
+  }
+}
+
+export type ImportVaultLink = { serverUrl: string; vaultId: string };
+
+export function parseImportVaultLink(link: string): ImportVaultLink | null {
+  const trimmed = link.trim();
+  if (!trimmed) return null;
+  // thoth://?serverUrl=https://...&vaultId=...
+  try {
+    if (trimmed.startsWith('thoth://')) {
+      const url = new URL(trimmed);
+      const serverUrl = url.searchParams.get('serverUrl') ?? url.searchParams.get('server');
+      const vaultId = url.searchParams.get('vaultId') ?? url.searchParams.get('vault');
+      if (serverUrl && vaultId) {
+        const validated = validateServerUrl(serverUrl);
+        if (validated.ok) return { serverUrl: validated.url, vaultId: vaultId.trim() };
+      }
+    }
+    // also accept https://...#vaultId=... or plain vaultId
+    if (/^[a-zA-Z0-9_-]{8,}$/.test(trimmed) && !trimmed.includes('://')) {
+      return null;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 /** Creates a vault on the server. */
 export async function createVault(
   serverUrl: string

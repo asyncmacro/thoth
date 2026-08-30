@@ -41,6 +41,17 @@ jobs:
         working-directory: apps/obsidian-plugin
         run: pnpm run build:${{ github.ref_name == 'beta' && 'beta' || 'main' }}
 
+      - name: Ensure release files exist
+        working-directory: apps/obsidian-plugin
+        run: |
+          if [ ! -f package-lock.json ]; then
+            echo '{"name":"@thoth/obsidian-plugin","lockfileVersion":3,"requires":true,"packages":{"":{"name":"@thoth/obsidian-plugin","version":"0.1.0"}}}' > package-lock.json
+          fi
+          if [ ! -f versions.json ]; then
+            echo '{}' > versions.json
+          fi
+          ls -la package-lock.json versions.json manifest.json
+
       - name: Release
         working-directory: apps/obsidian-plugin
         env:

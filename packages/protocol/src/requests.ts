@@ -43,3 +43,10 @@ export interface PullOperationsRequest {
   /** Continuation token for paginated sync. */
   continuationToken?: string;
 }
+
+export interface ImportVaultRequest {
+  /** Server URL from thoth:// link. */
+  serverUrl: string;
+  /** Vault identifier from thoth:// link. */
+  vaultId: string;
+}

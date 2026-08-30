@@ -51,3 +51,8 @@ All requests validated with shared schemas in `@thoth/validation`.
 - Operations are applied deterministically
 - Log is append-only; snapshots are immutable
 - Conflicts returned as 409 with current server revision
+
+## Auth Wizard
+
+- `vaultId` via picker (`Create new vault` auto `uuid`, `Import thoth://?serverUrl&vaultId`), not manual `TextComponent`
+- `deviceId` auto `uuidv4()`, `deviceName` defaults, `serverUrl` validated `https://` + `checkHealth` inline

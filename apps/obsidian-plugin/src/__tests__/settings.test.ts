@@ -31,6 +31,16 @@ describe('parseSettings', () => {
       ...DEFAULT_SETTINGS,
     });
   });
+
+  it('parses lastVaultIds and normalizes', () => {
+    expect(parseSettings({ lastVaultIds: ['a', 'b', 'a'] }).lastVaultIds).toEqual(['a', 'b']);
+    expect(parseSettings({ lastVaultIds: 'nope' }).lastVaultIds).toEqual([]);
+  });
+
+  it('handles syncedExtensions fallback', () => {
+    expect(parseSettings({ syncedExtensions: [] }).syncedExtensions).toEqual(['md']);
+    expect(parseSettings({ syncedExtensions: ['TXT', '.md', ''] }).syncedExtensions).toEqual(['txt', 'md']);
+  });
 });
 
 describe('withSetting', () => {

@@ -19,6 +19,7 @@ import { attachVaultListener } from './vault-listener.js';
 import {
   DEFAULT_SETTINGS,
   type ThothSettings,
+  pushRecentVaultId,
   withSetting,
 } from './settings.js';
 import { ThothSettingTab } from './settings-tab.js';
@@ -318,6 +319,7 @@ export class ThothPlugin extends Plugin {
       return;
     }
     this.settings = withSetting(this.settings, 'vaultId', res.vaultId);
+    this.settings = pushRecentVaultId(this.settings, res.vaultId);
     await this.saveSettings();
     new Notice(`Thoth: vault created ${res.vaultId}`);
   }

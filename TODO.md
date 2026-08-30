@@ -429,3 +429,35 @@ Git interoperability
 What v0.2 should feel like
 
 The goal isn't to add the most features—it's to make Thoth feel invisible. Users shouldn't think about synchronization at all. They edit notes on one device, open another, and everything is already there. It should recover gracefully from network interruptions, efficiently handle larger vaults and attachments, provide enough diagnostics to troubleshoot issues, and continue to run comfortably within the Cloudflare free tier. At the end of v0.2, Thoth should feel like a dependable piece of infrastructure rather than an experimental sync engine.
+
+---
+
+Phase 13 — Auth UX (Minimal Input Wizard)
+
+Goal: user enters only `Server URL`; `vaultId`/`deviceId`/`apiKey` are picker/auto.
+
+Plugin `apps/obsidian-plugin/src`
+
+[x] `settings.ts:1` add `lastVaultIds: string[]` + `asVaultIdList` + `parseSettings` migration
+[ ] `settings.ts` add `serverUrl` health cache type
+[x] `api.ts` add `validateServerUrl` + `importVaultLink` parser for `thoth://?serverUrl&vaultId`
+[x] `settings-tab.ts:21` replace `Vault ID` TextComponent with stepper S1 Server `[Text][Check]` → `checkHealth` `✓/✗`
+[x] `settings-tab.ts` S2 Vault `[Dropdown recent][Create new vault][Import link/QR]` → `createVault:main.ts:301`
+[x] `settings-tab.ts:42` S3 Device `[Text defaultDeviceName][Register]` → `registerDevice:212` auto `uuidv4`
+[ ] `main.ts:212` `registerDevice` no manual `deviceId` input, trim `deviceName` fallback
+[ ] `main.ts:191` `checkConnection` inline status, no Notice spam
+[ ] `main.ts:355` `updateStatusBar` `● live`/`○ polling`/`not configured` for wizard
+[ ] `main.ts:565` `bootstrapLocalVault` uses recent vaults picker
+
+Server `apps/server/src` / `packages/protocol|validation`
+
+[x] `validation/schemas.ts:34` add `serverUrlSchema` (`https://` pattern)
+[x] `protocol/requests.ts` add `ImportVaultRequest` if link flow
+[x] `durable-objects/vault.ts:187` keep `POST /devices`/`POST /vaults`, no new paid product
+
+Tests & Docs
+
+[x] `__tests__/settings.test.ts:10` `parseSettings` with `lastVaultIds`
+[x] `__tests__/settings-tab.test.ts` wizard stepper (S1→S2→S3) — manual verify, no headless Obsidian UI test
+[x] `docs/asset-migration.md` add wizard steps (1 field)
+[x] `docs/protocol.md:6` note `vaultId` via picker, not manual

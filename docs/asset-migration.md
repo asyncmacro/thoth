@@ -10,3 +10,7 @@ Migration:
 - Snapshot from pre-0.2 vaults has no `assets` field — `deserializeSnapshot` and `VaultDurableObject.load()` default `assets={}`.
 - After 500 ops `compactLog` now preserves `assets` in the snapshot; previously `add-asset` ops would be dropped.
 - `MAX_ASSET_SIZE=10MB` — larger files are skipped with a console warning and need manual split.
+
+# Auth Wizard (v0.2) — One Field
+
+User enters only `Server URL` (`https://…`, validated via `validateServerUrl`, `checkHealth` `✓/✗`). `Vault` is picker: `Create new vault` auto-creates `vaultId` (pushed to `lastVaultIds`) or `Import thoth://?serverUrl=&vaultId=` link. `Device` name defaults via `defaultDeviceName()`, `deviceId` auto `uuidv4()`, no manual `deviceId`/`apiKey` typing. Settings-tab shows `1. Server → 2. Vault → 3. Device` stepper with `Dropdown recent` and `Check` inline status.
