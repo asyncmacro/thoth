@@ -152,6 +152,25 @@ export class VaultDurableObject {
       });
     }
 
+    // Vault index for GET /vaults (stored in DO id _vault-index)
+    if (url.pathname === '/index/list' && method === 'GET') {
+      const list = (await this.state.storage.get<string[]>('index:vaults')) ?? [];
+      return json({ vaults: list });
+    }
+    if (url.pathname === '/index/add' && method === 'POST') {
+      const body = (await request.json().catch(() => null)) as { id?: string } | null;
+      const id = body?.id?.trim();
+      if (!id) return json({ error: 'BAD_REQUEST' }, 400);
+      const list = (await this.state.storage.get<string[]>('index:vaults')) ?? [];
+      if (!list.includes(id)) {
+        list.unshift(id);
+        // keep cap 100
+        if (list.length > 100) list.length = 100;
+        await this.state.storage.put('index:vaults', list);
+      }
+      return json({ ok: true });
+    }
+
     if (url.pathname === '/snapshot' && method === 'GET') {
       return json({
         revision: data.snapshot.revision,

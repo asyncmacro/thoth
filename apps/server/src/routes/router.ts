@@ -52,12 +52,30 @@ export function createRouter(env: Env) {
         );
       }
 
+      if (url.pathname === '/vaults' && request.method === 'GET') {
+        if (env.VAULT_DO) {
+          const indexId = env.VAULT_DO.idFromName('_vault-index');
+          const stub = env.VAULT_DO.get(indexId);
+          const res = await stub.fetch('https://internal/index/list');
+          return addCors(res);
+        }
+        return addCors(new Response(JSON.stringify({ vaults: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+      }
+
       if (url.pathname === '/vaults' && request.method === 'POST') {
         const id = crypto.randomUUID();
         if (env.VAULT_DO) {
           const doId = env.VAULT_DO.idFromName(id);
           const stub = env.VAULT_DO.get(doId);
           await stub.fetch('https://internal/init', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id }),
+          });
+          // Index for GET /vaults
+          const indexId = env.VAULT_DO.idFromName('_vault-index');
+          const indexStub = env.VAULT_DO.get(indexId);
+          await indexStub.fetch('https://internal/index/add', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id }),

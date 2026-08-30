@@ -1,6 +1,6 @@
 import { App, Notice, PluginSettingTab, Setting, TextComponent } from 'obsidian';
 
-import { checkHealth, validateServerUrl, parseImportVaultLink } from './api.js';
+import { checkHealth, listVaults, parseImportVaultLink, validateServerUrl } from './api.js';
 import type { ThothPlugin } from './main.js';
 import { pushRecentVaultId, withSetting, type ThothSettings } from './settings.js';
 import { defaultDeviceName } from './device-name.js';
@@ -82,6 +82,36 @@ export class ThothSettingTab extends PluginSettingTab {
           this.display();
         })
     );
+    // Server vaults list after Server URL (GET /vaults)
+    if (hasServer) {
+      const serverSetting2 = new Setting(containerEl).setName('Server vaults').setDesc('Loading vaults from server…');
+      void listVaults(this.plugin.settings.serverUrl).then((res) => {
+        if (!res.ok || res.vaults.length === 0) {
+          serverSetting2.setDesc(res.ok ? 'No vaults on server yet' : `Could not list: ${res.message}`);
+          return;
+        }
+        const vaults = res.vaults.filter((id) => !this.plugin.settings.lastVaultIds.includes(id));
+        if (vaults.length === 0) {
+          serverSetting2.setDesc('All server vaults already in recent');
+          return;
+        }
+        serverSetting2.setDesc(`Found ${vaults.length} vault(s) on server`);
+        serverSetting2.addDropdown((dd) => {
+          dd.addOption('', '— Server vaults —');
+          for (const id of vaults.slice(0, 20)) {
+            dd.addOption(id, `${id.slice(0, 8)}…`);
+          }
+          dd.setValue('');
+          dd.onChange(async (value) => {
+            if (!value) return;
+            this.plugin.settings = withSetting(this.plugin.settings, 'vaultId', value);
+            this.plugin.settings = pushRecentVaultId(this.plugin.settings, value);
+            await this.plugin.saveSettings();
+            this.display();
+          });
+        });
+      });
+    }
     // Import link
     const importSetting = new Setting(containerEl)
       .setName('Import vault link')
