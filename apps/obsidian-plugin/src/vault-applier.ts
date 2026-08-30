@@ -51,6 +51,7 @@ const BINARY_EXTENSIONS = new Set([
   'aac',
   'psd',
   'excalidraw',
+  'base',
 ]);
 
 export function isBinaryPath(path: string): boolean {
@@ -101,6 +102,7 @@ export function mimeTypeForPath(path: string): string | undefined {
     aac: 'audio/aac',
     psd: 'image/vnd.adobe.photoshop',
     excalidraw: 'application/json',
+    base: 'application/octet-stream',
   };
   return map[ext];
 }
