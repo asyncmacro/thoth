@@ -1,9 +1,9 @@
 {
-  "id": "thoth",
-  "name": "Thoth Sync",
-  "version": "0.2.0",
-  "minAppVersion": "1.4.0",
-  "description": "Offline-first operation-based synchronization for Obsidian vaults.",
-  "author": "Thoth",
-  "isDesktopOnly": false
+    "id": "thoth",
+    "name": "Thoth Sync",
+    "version": "1.0.0",
+    "minAppVersion": "1.4.0",
+    "description": "Offline-first operation-based synchronization for Obsidian vaults.",
+    "author": "Thoth",
+    "isDesktopOnly": false
 }
