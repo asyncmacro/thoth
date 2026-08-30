@@ -157,6 +157,61 @@ export async function downloadOperations(params: {
   }
 }
 
+export async function uploadAsset(params: {
+  serverUrl: string;
+  vaultId: string;
+  assetId: string;
+  data: ArrayBuffer;
+  mimeType?: string;
+}): Promise<{ ok: true; hash: string } | { ok: false; error: string }> {
+  if (params.data.byteLength > 10 * 1024 * 1024) {
+    return { ok: false, error: `Asset too large: ${params.data.byteLength} bytes` };
+  }
+  try {
+    const url = `${baseUrl(params.serverUrl)}/vaults/${encodeURIComponent(params.vaultId)}/assets/${encodeURIComponent(params.assetId)}`;
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': params.mimeType ?? 'application/octet-stream',
+      },
+      body: params.data,
+    });
+    if (!res.ok) {
+      return { ok: false, error: `Asset upload failed with status ${res.status}` };
+    }
+    const body = (await res.json().catch(() => null)) as unknown;
+    if (
+      typeof body === 'object' &&
+      body !== null &&
+      'hash' in body &&
+      typeof (body as { hash: unknown }).hash === 'string'
+    ) {
+      return { ok: true, hash: (body as { hash: string }).hash };
+    }
+    return { ok: true, hash: '' };
+  } catch (error) {
+    return { ok: false, error: `Asset upload failed: ${errorMessage(error)}` };
+  }
+}
+
+export async function downloadAsset(params: {
+  serverUrl: string;
+  vaultId: string;
+  assetId: string;
+}): Promise<{ ok: true; data: ArrayBuffer } | { ok: false; error: string }> {
+  try {
+    const url = `${baseUrl(params.serverUrl)}/vaults/${encodeURIComponent(params.vaultId)}/assets/${encodeURIComponent(params.assetId)}`;
+    const res = await fetch(url, { method: 'GET' });
+    if (!res.ok) {
+      return { ok: false, error: `Asset download failed with status ${res.status}` };
+    }
+    const data = await res.arrayBuffer();
+    return { ok: true, data };
+  } catch (error) {
+    return { ok: false, error: `Asset download failed: ${errorMessage(error)}` };
+  }
+}
+
 /**
  * High-level download + apply. Pulls missing operations from the server
  * and applies them to the vault in order.
@@ -197,15 +252,34 @@ export async function downloadAndApply(params: {
   }
 
   if (validOps.length > 0) {
-    await applyOperationsToVault(params.vault, validOps);
+    const fetchAsset = async (assetId: string): Promise<ArrayBuffer | null> => {
+      const result = await downloadAsset({
+        serverUrl: params.serverUrl,
+        vaultId: params.vaultId,
+        assetId,
+      });
+      if (result.ok) {
+        return result.data;
+      }
+      console.warn('Thoth: asset download failed', { assetId, error: result.error });
+      return null;
+    };
+    await applyOperationsToVault(params.vault, validOps, { fetchAsset });
   }
 
   return { ok: true, newRevision: pull.revision };
 }
 
+export interface SnapshotAsset {
+  assetId: string;
+  hash: string;
+  size: number;
+  mimeType?: string;
+}
+
 /** Result of downloading a server snapshot. */
 export type SnapshotResult =
-  | { ok: true; revision: number; files: Record<string, string> }
+  | { ok: true; revision: number; files: Record<string, string>; assets?: Record<string, SnapshotAsset> }
   | { ok: false; error: string };
 
 /**
@@ -236,7 +310,12 @@ export async function downloadSnapshot(params: {
     ) {
       const revision = (body as { revision: number }).revision;
       const files = (body as { files: Record<string, string> }).files;
-      return { ok: true, revision, files };
+      const assetsRaw = (body as { assets?: unknown }).assets;
+      const assets =
+        typeof assetsRaw === 'object' && assetsRaw !== null && !Array.isArray(assetsRaw)
+          ? (assetsRaw as Record<string, SnapshotAsset>)
+          : undefined;
+      return { ok: true, revision, files, ...(assets ? { assets } : {}) };
     }
     return { ok: false, error: 'Snapshot response missing revision or files' };
   } catch (error) {

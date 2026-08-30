@@ -6,7 +6,7 @@ Thoth synchronizes via atomic operations, not whole files.
 
 - `Operation` – immutable, ordered by `revision`
   - `id: string` – stable ULID/UUID
-  - `type: 'create-note'|'delete-note'|'rename-note'|'replace-content'|'insert-text'|'delete-text'|'replace-range'`
+  - `type: 'create-note'|'delete-note'|'rename-note'|'replace-content'|'insert-text'|'delete-text'|'replace-range'|'add-asset'|'delete-asset'`
   - `deviceId: string`
   - `revision: number`
   - `parentRevision?: number`
@@ -16,13 +16,15 @@ Thoth synchronizes via atomic operations, not whole files.
 
 ## Operation kinds
 
-- `create-note` – `{ path, content }`
+- `create-note` – `{ path, content }` — text files (md, txt, canvas, json); binary files use `add-asset` + base64 fallback via `files` map
 - `replace-content` – `{ path, content }`
-- `rename-note` – `{ oldPath, newPath }`
+- `rename-note` – `{ oldPath, newPath }` — works for both text and binary (renames any `TAbstractFile`)
 - `delete-note` – `{ path }`
 - `insert-text` – `{ path, index, text }`
 - `delete-text` – `{ path, index, length }`
 - `replace-range` – `{ path, index, length, text }`
+- `add-asset` – `{ path, assetId, hash, size, mimeType? }` — binary files (png, jpg, pdf, etc.); blob uploaded via `PUT /vaults/:id/assets/:assetId` before push, downloaded via `GET` on apply
+- `delete-asset` – `{ path, assetId }`
 
 ## Requests
 

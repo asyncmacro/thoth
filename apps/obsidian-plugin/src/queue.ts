@@ -1,10 +1,15 @@
 import type {
+  AddAssetPayload,
   CreateNotePayload,
+  DeleteAssetPayload,
   DeleteNotePayload,
+  DeleteTextPayload,
   DeviceId,
+  InsertTextPayload,
   Operation,
   RenameNotePayload,
   ReplaceContentPayload,
+  ReplaceRangePayload,
 } from '@thoth/protocol';
 
 /**
@@ -15,7 +20,12 @@ export type OperationDraft =
   | { type: 'create-note'; payload: CreateNotePayload }
   | { type: 'delete-note'; payload: DeleteNotePayload }
   | { type: 'rename-note'; payload: RenameNotePayload }
-  | { type: 'replace-content'; payload: ReplaceContentPayload };
+  | { type: 'replace-content'; payload: ReplaceContentPayload }
+  | { type: 'insert-text'; payload: InsertTextPayload }
+  | { type: 'delete-text'; payload: DeleteTextPayload }
+  | { type: 'replace-range'; payload: ReplaceRangePayload }
+  | { type: 'add-asset'; payload: AddAssetPayload }
+  | { type: 'delete-asset'; payload: DeleteAssetPayload };
 
 /** Called after the queue changes so callers can persist it. */
 export type QueueChangeListener = (queue: OperationQueue) => Promise<void>;
@@ -110,6 +120,46 @@ export class OperationQueue {
         return {
           id,
           type: 'replace-content',
+          deviceId,
+          revision,
+          payload: draft.payload,
+        };
+      case 'insert-text':
+        return {
+          id,
+          type: 'insert-text',
+          deviceId,
+          revision,
+          payload: draft.payload,
+        };
+      case 'delete-text':
+        return {
+          id,
+          type: 'delete-text',
+          deviceId,
+          revision,
+          payload: draft.payload,
+        };
+      case 'replace-range':
+        return {
+          id,
+          type: 'replace-range',
+          deviceId,
+          revision,
+          payload: draft.payload,
+        };
+      case 'add-asset':
+        return {
+          id,
+          type: 'add-asset',
+          deviceId,
+          revision,
+          payload: draft.payload,
+        };
+      case 'delete-asset':
+        return {
+          id,
+          type: 'delete-asset',
           deviceId,
           revision,
           payload: draft.payload,

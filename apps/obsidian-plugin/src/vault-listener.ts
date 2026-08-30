@@ -3,12 +3,21 @@ import type { TAbstractFile, TFile, Vault } from 'obsidian';
 import type { FileChange } from './change-detection.js';
 import { changeToDraft } from './change-detection.js';
 import type { OperationQueue } from './queue.js';
+import {
+  assetIdForPath,
+  hashArrayBuffer,
+  isBinaryPath,
+  MAX_ASSET_SIZE,
+  mimeTypeForPath,
+} from './vault-applier.js';
 
 interface ListenerOptions {
   vault: Vault;
   queue: OperationQueue;
   /** Returns the configured device id; empty until the user registers. */
   getDeviceId: () => string;
+  /** Returns the file extensions to synchronize as text files. */
+  getExtensions: () => string[];
   /** Returns true while sync is applying server changes to the vault. */
   isSyncing?: () => boolean;
   /** Called after a local change was enqueued successfully. */
@@ -16,12 +25,13 @@ interface ListenerOptions {
 }
 
 /**
- * Structural check for markdown notes. Avoids `instanceof TFile` so the
- * listener can be tested with plain fixtures; folders and non-markdown
- * files have no `extension === 'md'`.
+ * Structural check for synchronizable text files. Avoids `instanceof
+ * TFile` so the listener can be tested with plain fixtures; folders have
+ * no `extension` and are always excluded.
  */
-function isMarkdownNote(file: TAbstractFile): file is TFile {
-  return (file as TFile).extension === 'md';
+function isSyncedFile(file: TAbstractFile, extensions: string[]): file is TFile {
+  const ext = (file as TFile).extension;
+  return typeof ext === 'string' && extensions.includes(ext.toLowerCase());
 }
 
 /**
@@ -36,7 +46,7 @@ function isMarkdownNote(file: TAbstractFile): file is TFile {
  * no-op content write) and can be deduplicated in a later phase.
  */
 export function attachVaultListener(options: ListenerOptions): () => void {
-  const { vault, queue, getDeviceId } = options;
+  const { vault, queue, getDeviceId, getExtensions } = options;
 
   const safely = async (work: () => Promise<void>): Promise<void> => {
     try {
@@ -61,18 +71,74 @@ export function attachVaultListener(options: ListenerOptions): () => void {
   };
 
   const handleCreateOrModify = async (file: TAbstractFile): Promise<void> => {
-    if (!isMarkdownNote(file)) {
+    if (!isSyncedFile(file, getExtensions())) {
       return;
     }
-    const content = await vault.read(file);
+    if (isBinaryPath(file.path) && typeof (vault as Vault & { readBinary?: (f: TFile) => Promise<ArrayBuffer> }).readBinary === 'function') {
+      if (options.isSyncing?.()) return;
+      const deviceId = getDeviceId().trim();
+      if (!deviceId) return;
+      const buffer = await (vault as Vault & { readBinary: (f: TFile) => Promise<ArrayBuffer> }).readBinary(file as TFile);
+      if (buffer.byteLength > MAX_ASSET_SIZE) {
+        console.warn('Thoth: asset too large, skipped', { path: file.path, size: buffer.byteLength });
+        return;
+      }
+      const hash = await hashArrayBuffer(buffer);
+      const assetId = assetIdForPath(file.path);
+      const mimeType = mimeTypeForPath(file.path);
+      await queue.enqueue(
+        {
+          type: 'add-asset',
+          payload: {
+            path: file.path,
+            assetId,
+            hash,
+            size: buffer.byteLength,
+            ...(mimeType ? { mimeType } : {}),
+          },
+        },
+        deviceId
+      );
+      options.onLocalChange?.();
+      return;
+    }
+    const content = await vault.read(file as TFile);
     await enqueue({ kind: 'create', path: file.path, content });
   };
 
   const handleModify = async (file: TAbstractFile): Promise<void> => {
-    if (!isMarkdownNote(file)) {
+    if (!isSyncedFile(file, getExtensions())) {
       return;
     }
-    const content = await vault.read(file);
+    if (isBinaryPath(file.path) && typeof (vault as Vault & { readBinary?: (f: TFile) => Promise<ArrayBuffer> }).readBinary === 'function') {
+      if (options.isSyncing?.()) return;
+      const deviceId = getDeviceId().trim();
+      if (!deviceId) return;
+      const buffer = await (vault as Vault & { readBinary: (f: TFile) => Promise<ArrayBuffer> }).readBinary(file as TFile);
+      if (buffer.byteLength > MAX_ASSET_SIZE) {
+        console.warn('Thoth: asset too large, skipped', { path: file.path, size: buffer.byteLength });
+        return;
+      }
+      const hash = await hashArrayBuffer(buffer);
+      const assetId = assetIdForPath(file.path);
+      const mimeType = mimeTypeForPath(file.path);
+      await queue.enqueue(
+        {
+          type: 'add-asset',
+          payload: {
+            path: file.path,
+            assetId,
+            hash,
+            size: buffer.byteLength,
+            ...(mimeType ? { mimeType } : {}),
+          },
+        },
+        deviceId
+      );
+      options.onLocalChange?.();
+      return;
+    }
+    const content = await vault.read(file as TFile);
     await enqueue({ kind: 'modify', path: file.path, content });
   };
 
@@ -80,14 +146,26 @@ export function attachVaultListener(options: ListenerOptions): () => void {
     file: TAbstractFile,
     oldPath: string
   ): Promise<void> => {
-    if (!isMarkdownNote(file)) {
+    if (!isSyncedFile(file, getExtensions())) {
       return;
     }
     await enqueue({ kind: 'rename', oldPath, newPath: file.path });
   };
 
   const handleDelete = async (file: TAbstractFile): Promise<void> => {
-    if (!isMarkdownNote(file)) {
+    if (!isSyncedFile(file, getExtensions())) {
+      return;
+    }
+    if (isBinaryPath(file.path)) {
+      if (options.isSyncing?.()) return;
+      const deviceId = getDeviceId().trim();
+      if (!deviceId) return;
+      const assetId = assetIdForPath(file.path);
+      await queue.enqueue(
+        { type: 'delete-asset', payload: { path: file.path, assetId } },
+        deviceId
+      );
+      options.onLocalChange?.();
       return;
     }
     await enqueue({ kind: 'delete', path: file.path });

@@ -185,10 +185,18 @@ export const logSchema = object({
   operations: array(operationSchema),
 });
 
-/** Schema for a stored vault snapshot (revision + file map). */
+const assetRecordSchema = object({
+  assetId: string({ minLength: 1, maxLength: 200 }),
+  hash: string({ minLength: 1 }),
+  size: integer({ min: 0 }),
+  mimeType: optional(string({ maxLength: 200 })),
+});
+
+/** Schema for a stored vault snapshot (revision + file map + optional assets). */
 export const snapshotSchema = object({
   revision: integer({ min: 0 }),
   files: record(string()),
+  assets: optional(record(assetRecordSchema)),
 });
 
 /** Schema for a WebSocket ticket request body. */

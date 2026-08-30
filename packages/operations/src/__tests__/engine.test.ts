@@ -94,29 +94,29 @@ describe('applyOperation', () => {
     const result = applyOperation(state, createNote());
     expect(result).toEqual({
       ok: true,
-      state: { revision: 1, files: { 'notes/a.md': 'hello' } },
+      state: { revision: 1, files: { 'notes/a.md': 'hello' }, assets: {} },
     });
   });
 
   it('does not mutate the input state', () => {
     const state = createVaultState();
     applyOperation(state, createNote());
-    expect(state).toEqual({ revision: 0, files: {} });
+    expect(state).toEqual({ revision: 0, files: {}, assets: {} });
   });
 
   it('upserts an existing note on create', () => {
-    const state = { revision: 0, files: { 'notes/a.md': 'x' } };
+    const state = { revision: 0, files: { 'notes/a.md': 'x' }, assets: {} };
     const result = applyOperation(state, createNote());
     expect(result).toEqual({
       ok: true,
-      state: { revision: 1, files: { 'notes/a.md': 'hello' } },
+      state: { revision: 1, files: { 'notes/a.md': 'hello' }, assets: {} },
     });
   });
 
   it('deletes a note', () => {
-    const state = { revision: 0, files: { 'notes/a.md': 'x' } };
+    const state = { revision: 0, files: { 'notes/a.md': 'x' }, assets: {} };
     const result = applyOperation(state, deleteNote());
-    expect(result).toEqual({ ok: true, state: { revision: 1, files: {} } });
+    expect(result).toEqual({ ok: true, state: { revision: 1, files: {}, assets: {} } });
   });
 
   it('rejects deleting a missing note', () => {
@@ -125,11 +125,11 @@ describe('applyOperation', () => {
   });
 
   it('renames a note', () => {
-    const state = { revision: 0, files: { 'notes/a.md': 'content' } };
+    const state = { revision: 0, files: { 'notes/a.md': 'content' }, assets: {} };
     const result = applyOperation(state, renameNote());
     expect(result).toEqual({
       ok: true,
-      state: { revision: 1, files: { 'notes/b.md': 'content' } },
+      state: { revision: 1, files: { 'notes/b.md': 'content' }, assets: {} },
     });
   });
 
@@ -142,17 +142,18 @@ describe('applyOperation', () => {
     const state = {
       revision: 0,
       files: { 'notes/a.md': 'a', 'notes/b.md': 'b' },
+      assets: {},
     };
     const result = applyOperation(state, renameNote());
     expect(result).toEqual({ ok: false, error: 'TARGET_EXISTS' });
   });
 
   it('replaces note content', () => {
-    const state = { revision: 0, files: { 'notes/a.md': 'old' } };
+    const state = { revision: 0, files: { 'notes/a.md': 'old' }, assets: {} };
     const result = applyOperation(state, replaceContent());
     expect(result).toEqual({
       ok: true,
-      state: { revision: 1, files: { 'notes/a.md': 'updated' } },
+      state: { revision: 1, files: { 'notes/a.md': 'updated' }, assets: {} },
     });
   });
 
@@ -160,7 +161,7 @@ describe('applyOperation', () => {
     const result = applyOperation(createVaultState(), replaceContent());
     expect(result).toEqual({
       ok: true,
-      state: { revision: 1, files: { 'notes/a.md': 'updated' } },
+      state: { revision: 1, files: { 'notes/a.md': 'updated' }, assets: {} },
     });
   });
 });
@@ -178,7 +179,7 @@ describe('applyOperations', () => {
       deleteNote({ revision: 3, payload: { path: 'notes/b.md' } }),
     ];
     const result = applyOperations(state, operations);
-    expect(result).toEqual({ ok: true, state: { revision: 4, files: {} } });
+    expect(result).toEqual({ ok: true, state: { revision: 4, files: {}, assets: {} } });
   });
 
   it('applies duplicate creates as upserts', () => {
@@ -187,7 +188,7 @@ describe('applyOperations', () => {
     const result = applyOperations(state, operations);
     expect(result).toEqual({
       ok: true,
-      state: { revision: 2, files: { 'notes/a.md': 'hello' } },
+      state: { revision: 2, files: { 'notes/a.md': 'hello' }, assets: {} },
     });
   });
 
@@ -195,6 +196,6 @@ describe('applyOperations', () => {
     const state = createVaultState();
     const operations: Operation[] = [createNote(), createNote({ revision: 1 })];
     applyOperations(state, operations);
-    expect(state).toEqual({ revision: 0, files: {} });
+    expect(state).toEqual({ revision: 0, files: {}, assets: {} });
   });
 });

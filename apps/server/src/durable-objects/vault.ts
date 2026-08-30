@@ -156,6 +156,7 @@ export class VaultDurableObject {
       return json({
         revision: data.snapshot.revision,
         files: data.snapshot.files,
+        assets: (data.snapshot as VaultState).assets ?? {},
       });
     }
 
@@ -633,6 +634,13 @@ export class VaultDurableObject {
   private async load(): Promise<StoredVault> {
     const stored = await this.state.storage.get<StoredVault>('vault');
     if (stored) {
+      // Migrate old snapshots without assets field
+      if (!stored.snapshot.assets) {
+        (stored.snapshot as VaultState).assets = {};
+      }
+      if (!stored.assets) {
+        stored.assets = {};
+      }
       // Crash recovery: verify snapshot integrity
       const expectedRevision =
         stored.log.operations.length > 0

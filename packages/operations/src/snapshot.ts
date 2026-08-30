@@ -44,6 +44,10 @@ export function deserializeSnapshot(raw: string): VaultState {
   if (!result.ok) {
     throw new ValidationError(result.issues);
   }
-  // snapshotSchema is structurally identical to VaultState.
-  return result.value;
+  // Normalize missing assets for backward compat
+  const value = result.value as VaultState;
+  if (!value.assets) {
+    value.assets = {};
+  }
+  return value;
 }

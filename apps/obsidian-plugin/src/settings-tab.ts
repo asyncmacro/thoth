@@ -38,6 +38,29 @@ export class ThothSettingTab extends PluginSettingTab {
         })
       );
 
+    new Setting(containerEl)
+      .setName('Synced file extensions')
+      .setDesc(
+        'Comma-separated extensions synchronized as text files (e.g. md, txt, canvas). Binary files are not yet synced.'
+      )
+      .addText((text) => {
+        text
+          .setPlaceholder('md, txt')
+          .setValue(this.plugin.settings.syncedExtensions.join(', '))
+          .onChange(async (value: string) => {
+            const extensions = value
+              .split(',')
+              .map((s) => s.trim().toLowerCase().replace(/^\./, ''))
+              .filter(Boolean);
+            this.plugin.settings = withSetting(
+              this.plugin.settings,
+              'syncedExtensions',
+              extensions.length > 0 ? extensions : ['md']
+            );
+            await this.plugin.saveSettings();
+          });
+      });
+
     // Device section
     const { deviceId, apiKey, deviceName } = this.plugin.settings;
     const registered = Boolean(deviceId && apiKey);
@@ -148,12 +171,12 @@ export class ThothSettingTab extends PluginSettingTab {
 
   private bindConfig(
     text: TextComponent,
-    key: keyof ThothSettings,
+    key: Extract<keyof ThothSettings, 'serverUrl' | 'vaultId' | 'deviceId' | 'apiKey' | 'deviceName'>,
     placeholder: string
   ): void {
     text
       .setPlaceholder(placeholder)
-      .setValue(this.plugin.settings[key])
+      .setValue(this.plugin.settings[key] as string)
       .onChange(async (value: string) => {
         this.plugin.settings = withSetting(this.plugin.settings, key, value);
         await this.plugin.saveSettings();

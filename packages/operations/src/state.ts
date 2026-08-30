@@ -7,11 +7,19 @@
 
 import type { Revision } from '@thoth/protocol';
 
+export interface AssetRecord {
+  assetId: string;
+  hash: string;
+  size: number;
+  mimeType?: string;
+}
+
 export interface VaultState {
   revision: Revision;
   files: Record<string, string>;
+  assets: Record<string, AssetRecord>;
 }
 
 export function createVaultState(): VaultState {
-  return { revision: 0, files: {} };
+  return { revision: 0, files: {}, assets: {} };
 }

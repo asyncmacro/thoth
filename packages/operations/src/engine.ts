@@ -41,11 +41,16 @@ export function operationError(
       return null;
     case 'delete-note':
       return op.payload.path in state.files ? null : 'NOTE_NOT_FOUND';
-    case 'rename-note':
-      if (!(op.payload.oldPath in state.files)) {
+    case 'rename-note': {
+      const inFiles = op.payload.oldPath in state.files;
+      const inAssets = op.payload.oldPath in state.assets;
+      if (!inFiles && !inAssets) {
         return 'NOTE_NOT_FOUND';
       }
-      return op.payload.newPath in state.files ? 'TARGET_EXISTS' : null;
+      const targetInFiles = op.payload.newPath in state.files;
+      const targetInAssets = op.payload.newPath in state.assets;
+      return targetInFiles || targetInAssets ? 'TARGET_EXISTS' : null;
+    }
     case 'replace-content':
       return null;
     case 'insert-text':
@@ -53,8 +58,9 @@ export function operationError(
     case 'replace-range':
       return op.payload.path in state.files ? null : 'NOTE_NOT_FOUND';
     case 'add-asset':
-    case 'delete-asset':
       return null;
+    case 'delete-asset':
+      return op.payload.path in state.assets ? null : 'NOTE_NOT_FOUND';
   }
 }
 
@@ -69,6 +75,7 @@ export function applyOperation(state: VaultState, op: Operation): ApplyResult {
   }
 
   const files = { ...state.files };
+  const assets = { ...state.assets };
   switch (op.type) {
     case 'create-note':
       files[op.payload.path] = op.payload.content;
@@ -77,9 +84,16 @@ export function applyOperation(state: VaultState, op: Operation): ApplyResult {
       delete files[op.payload.path];
       break;
     case 'rename-note': {
-      const content = files[op.payload.oldPath];
-      delete files[op.payload.oldPath];
-      files[op.payload.newPath] = content;
+      if (op.payload.oldPath in files) {
+        const content = files[op.payload.oldPath];
+        delete files[op.payload.oldPath];
+        files[op.payload.newPath] = content as string;
+      }
+      if (op.payload.oldPath in assets) {
+        const meta = assets[op.payload.oldPath];
+        delete assets[op.payload.oldPath];
+        assets[op.payload.newPath] = meta as typeof assets[string];
+      }
       break;
     }
     case 'replace-content':
@@ -107,13 +121,18 @@ export function applyOperation(state: VaultState, op: Operation): ApplyResult {
         existing.slice(0, idx) + op.payload.text + existing.slice(end);
       break;
     }
-    case 'add-asset':
-    case 'delete-asset':
-      // Asset operations do not modify note files; handled separately
+    case 'add-asset': {
+      const { path, assetId, hash, size, mimeType } = op.payload;
+      assets[path] = { assetId, hash, size, ...(mimeType ? { mimeType } : {}) };
       break;
+    }
+    case 'delete-asset': {
+      delete assets[op.payload.path];
+      break;
+    }
   }
 
-  return { ok: true, state: { revision: nextRevision(state.revision), files } };
+  return { ok: true, state: { revision: nextRevision(state.revision), files, assets } };
 }
 
 /**

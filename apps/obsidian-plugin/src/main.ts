@@ -29,12 +29,19 @@ import {
   downloadAndApply,
   downloadSnapshot,
   downloadOperations,
+  uploadAsset,
+  downloadAsset,
 } from './sync-engine.js';
 import { RetryScheduler } from './retry-scheduler.js';
 import type { VaultAdapter } from './vault-applier.js';
 import {
   applySnapshotToVault,
   applyOperationsToVault,
+  assetIdForPath,
+  hashArrayBuffer,
+  isBinaryPath,
+  MAX_ASSET_SIZE,
+  mimeTypeForPath,
 } from './vault-applier.js';
 import { connectRealtime, type RealtimeStatus } from './realtime-client.js';
 
@@ -125,6 +132,7 @@ export class ThothPlugin extends Plugin {
         vault: this.app.vault,
         queue: this.queue,
         getDeviceId: () => this.settings.deviceId,
+        getExtensions: () => this.settings.syncedExtensions,
         isSyncing: () => this.isSyncing,
         onLocalChange: () => {
           if (
@@ -458,11 +466,32 @@ export class ThothPlugin extends Plugin {
         if (snapshotResult.ok) {
           snapshotFiles = snapshotResult.files;
           await applySnapshotToVault(adapter, snapshotResult.files);
+          // Restore binary assets from snapshot
+          if (snapshotResult.assets) {
+            for (const [path, meta] of Object.entries(snapshotResult.assets)) {
+              const assetRes = await downloadAsset({
+                serverUrl: this.settings.serverUrl,
+                vaultId: this.settings.vaultId,
+                assetId: meta.assetId,
+              });
+              if (assetRes.ok) {
+                const exists = await adapter.exists(path);
+                if (exists) {
+                  await adapter.modifyBinary?.({ path }, assetRes.data);
+                } else {
+                  await adapter.createBinary?.(path, assetRes.data);
+                }
+              } else {
+                console.warn('Thoth: snapshot asset download failed', { path, assetId: meta.assetId });
+              }
+            }
+          }
           this.serverRevision = snapshotResult.revision;
           await this.saveSettings();
           console.debug('Thoth: restored from snapshot', {
             revision: snapshotResult.revision,
             files: Object.keys(snapshotResult.files).length,
+            assets: snapshotResult.assets ? Object.keys(snapshotResult.assets).length : 0,
           });
         } else {
           console.warn('Thoth: snapshot restore failed', {
@@ -508,12 +537,59 @@ export class ThothPlugin extends Plugin {
         if (latest.ok && latest.revision > this.serverRevision) {
           // Apply any newly pulled operations to the local vault first
           const adapter = this.createVaultAdapter();
-          await applyOperationsToVault(adapter, latest.operations);
+          const fetchAsset = async (assetId: string): Promise<ArrayBuffer | null> => {
+            const r = await downloadAsset({
+              serverUrl: this.settings.serverUrl,
+              vaultId: this.settings.vaultId,
+              assetId,
+            });
+            return r.ok ? r.data : null;
+          };
+          await applyOperationsToVault(adapter, latest.operations, { fetchAsset });
           this.serverRevision = latest.revision;
           await this.saveSettings();
         }
         const baseRevision = this.serverRevision;
         const batch = this.queue.all.slice(0, MAX_BATCH_SIZE);
+        // Upload binary assets for add-asset ops before pushing the batch
+        const uploadAdapter = this.createVaultAdapter();
+        let assetUploadFailed = false;
+        for (const op of batch) {
+          if (op.type === 'add-asset') {
+            const exists = await uploadAdapter.exists(op.payload.path);
+            if (!exists) {
+              console.warn('Thoth: asset file missing, skipping upload', {
+                path: op.payload.path,
+              });
+              continue;
+            }
+            const data = await uploadAdapter.readBinary?.(op.payload.path);
+            if (!data) {
+              console.warn('Thoth: readBinary unavailable for asset', {
+                path: op.payload.path,
+              });
+              continue;
+            }
+            const res = await uploadAsset({
+              serverUrl: this.settings.serverUrl,
+              vaultId: this.settings.vaultId,
+              assetId: op.payload.assetId,
+              data,
+              mimeType: op.payload.mimeType,
+            });
+            if (!res.ok) {
+              console.warn('Thoth: asset upload failed, will retry', {
+                assetId: op.payload.assetId,
+                error: res.error,
+              });
+              assetUploadFailed = true;
+              break;
+            }
+          }
+        }
+        if (assetUploadFailed) {
+          break;
+        }
         const uploadResult = await uploadOperations({
           serverUrl: this.settings.serverUrl,
           vaultId: this.settings.vaultId,
@@ -565,32 +641,61 @@ export class ThothPlugin extends Plugin {
       console.debug('Thoth: bootstrap skipped, device not configured');
       return;
     }
-    const mdFiles = this.app.vault.getMarkdownFiles();
+    const extensions = new Set(this.settings.syncedExtensions.map((e) => e.toLowerCase()));
+    const allFiles = this.app.vault.getFiles();
+    const syncedFiles = allFiles.filter(
+      (file) => extensions.has(file.extension.toLowerCase())
+    );
     let enqueued = 0;
-    for (const file of mdFiles) {
+    for (const file of syncedFiles) {
       const path = file.path;
       const serverContent = serverFiles[path];
-      if (serverContent === undefined) {
-        // Local file not on server → enqueue create
-        const content = await this.app.vault.read(file);
-        await this.queue.enqueue(
-          { type: 'create-note', payload: { path, content } },
-          this.settings.deviceId
-        );
-        enqueued++;
-      } else {
-        // Exists on server, check for divergence
-        const localContent = await this.app.vault.read(file);
-        if (localContent !== serverContent) {
+      const isBinary = isBinaryPath(path);
+      if (isBinary) {
+        if (serverContent === undefined) {
+          const buffer = await this.app.vault.readBinary(file);
+          if (buffer.byteLength > MAX_ASSET_SIZE) {
+            console.warn('Thoth: asset too large in bootstrap, skipped', { path, size: buffer.byteLength });
+            continue;
+          }
+          const hash = await hashArrayBuffer(buffer);
+          const assetId = assetIdForPath(path);
+          const mimeType = mimeTypeForPath(path);
           await this.queue.enqueue(
             {
-              type: 'replace-content',
-              payload: { path, content: localContent },
+              type: 'add-asset',
+              payload: {
+                path,
+                assetId,
+                hash,
+                size: buffer.byteLength,
+                ...(mimeType ? { mimeType } : {}),
+              },
             },
             this.settings.deviceId
           );
           enqueued++;
         }
+        // Binary diverging content will be handled via add-asset on next modify
+        continue;
+      }
+      const localContent = await this.app.vault.read(file);
+      if (serverContent === undefined) {
+        // Local file not on server → enqueue create
+        await this.queue.enqueue(
+          { type: 'create-note', payload: { path, content: localContent } },
+          this.settings.deviceId
+        );
+        enqueued++;
+      } else if (localContent !== serverContent) {
+        await this.queue.enqueue(
+          {
+            type: 'replace-content',
+            payload: { path, content: localContent },
+          },
+          this.settings.deviceId
+        );
+        enqueued++;
       }
     }
     if (enqueued > 0) {
@@ -601,6 +706,18 @@ export class ThothPlugin extends Plugin {
 
   private createVaultAdapter(): VaultAdapter {
     const vault = this.app.vault;
+    const ensureFolders = async (path: string): Promise<void> => {
+      const parts = path.split('/');
+      parts.pop();
+      let folderPath = '';
+      for (const part of parts) {
+        folderPath = folderPath ? `${folderPath}/${part}` : part;
+        const existing = vault.getAbstractFileByPath(folderPath);
+        if (!existing) {
+          await vault.createFolder(folderPath);
+        }
+      }
+    };
     return {
       exists: async (path: string) => {
         const file = vault.getAbstractFileByPath(path);
@@ -613,24 +730,31 @@ export class ThothPlugin extends Plugin {
         }
         return await vault.read(file as any);
       },
-      create: async (path: string, content: string) => {
-        // Ensure parent folders exist before creating the file
-        const parts = path.split('/');
-        parts.pop();
-        let folderPath = '';
-        for (const part of parts) {
-          folderPath = folderPath ? `${folderPath}/${part}` : part;
-          const existing = vault.getAbstractFileByPath(folderPath);
-          if (!existing) {
-            await vault.createFolder(folderPath);
-          }
+      readBinary: async (path: string) => {
+        const file = vault.getAbstractFileByPath(path);
+        if (!file) {
+          throw new Error(`File not found: ${path}`);
         }
+        return await vault.readBinary(file as any);
+      },
+      create: async (path: string, content: string) => {
+        await ensureFolders(path);
         await vault.create(path, content);
+      },
+      createBinary: async (path: string, data: ArrayBuffer) => {
+        await ensureFolders(path);
+        await vault.createBinary(path, data);
       },
       modify: async (file: { path: string }, content: string) => {
         const f = vault.getAbstractFileByPath(file.path);
         if (f) {
           await vault.modify(f as any, content);
+        }
+      },
+      modifyBinary: async (file: { path: string }, data: ArrayBuffer) => {
+        const f = vault.getAbstractFileByPath(file.path);
+        if (f) {
+          await vault.modifyBinary(f as any, data);
         }
       },
       rename: async (file: { path: string }, newPath: string) => {

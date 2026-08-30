@@ -28,13 +28,17 @@ class FakeVault {
 
 const note = (path: string): TFile => ({ path, extension: 'md' }) as TFile;
 
-function setup(getDeviceId: () => string = () => 'dev-1') {
+function setup(
+  getDeviceId: () => string = () => 'dev-1',
+  getExtensions: () => string[] = () => ['md']
+) {
   const vault = new FakeVault();
   const queue = new OperationQueue();
   const detach = attachVaultListener({
     vault: vault as unknown as Vault,
     queue,
     getDeviceId,
+    getExtensions,
   });
   return { vault, queue, detach };
 }
@@ -102,12 +106,24 @@ describe('attachVaultListener', () => {
     }
   });
 
-  it('ignores non-markdown files', async () => {
+  it('ignores files outside the configured extensions', async () => {
     const { vault, queue } = setup();
     vault.fire('create', { path: 'image.png', extension: 'png' });
     vault.fire('modify', { path: 'note.txt', extension: 'txt' });
 
     await vi.waitFor(() => expect(queue.size).toBe(0));
+  });
+
+  it('queues operations for configured non-markdown text files', async () => {
+    const { vault, queue } = setup(() => 'dev-1', () => ['md', 'txt', 'canvas']);
+    vault.fire('create', { path: 'note.txt', extension: 'txt' });
+
+    await waitForSize(queue, 1);
+    const op = queue.all[0];
+    expect(op.type).toBe('create-note');
+    if (op.type === 'create-note') {
+      expect(op.payload.path).toBe('note.txt');
+    }
   });
 
   it('ignores folders', async () => {

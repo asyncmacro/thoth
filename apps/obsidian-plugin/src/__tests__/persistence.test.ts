@@ -108,6 +108,7 @@ describe('loadPluginData', () => {
         deviceId: 'd',
         apiKey: 'k',
         deviceName: '',
+        syncedExtensions: ['md'],
       },
       queue: [validOperation(1)],
       serverRevision: 42,

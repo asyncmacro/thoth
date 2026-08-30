@@ -37,7 +37,7 @@ describe('snapshotFromLog', () => {
     const result = snapshotFromLog(second.log);
     expect(result).toEqual({
       ok: true,
-      state: { revision: 2, files: { 'notes/b.md': 'hello' } },
+      state: { revision: 2, files: { 'notes/b.md': 'hello' }, assets: {} },
     });
   });
 
@@ -74,7 +74,7 @@ describe('snapshotFromLog', () => {
 
 describe('serialize/deserialize snapshot', () => {
   it('round-trips a snapshot through JSON', () => {
-    const snapshot = { revision: 3, files: { 'a.md': 'hello', 'b.md': 'x' } };
+    const snapshot = { revision: 3, files: { 'a.md': 'hello', 'b.md': 'x' }, assets: {} };
     const restored = deserializeSnapshot(serializeSnapshot(snapshot));
     expect(restored).toEqual(snapshot);
   });
